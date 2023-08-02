@@ -15,7 +15,6 @@ common common
     -Wredundant-constraints
   build-depends:
       base == 4.18.*
-    , hashable == 1.4.*
     , unordered-containers == 0.2.*
   default-Language:
     GHC2021

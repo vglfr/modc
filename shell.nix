@@ -1,16 +1,16 @@
-# let
-#   config = {
-#     packageOverrides = pkgs: {
-#       haskell-language-server = pkgs.haskell-language-server.override {
-#         supportedGhcVersions = [ "943" ];
-#       };
-#     };
-#   };
+let
+  config = {
+    packageOverrides = pkgs: {
+      haskell-language-server = pkgs.haskell-language-server.override {
+        supportedGhcVersions = [ "96" ];
+      };
+    };
+  };
 
-# in
+in
   {
-    # pkgs ? import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/fb942492b7accdee4e6d17f5447091c65897dde4.tar.gz") { inherit config; }
-    pkgs ? import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/fb942492b7accdee4e6d17f5447091c65897dde4.tar.gz") { }
+    pkgs ? import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/fb942492b7accdee4e6d17f5447091c65897dde4.tar.gz") { inherit config; }
+    # pkgs ? import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/fb942492b7accdee4e6d17f5447091c65897dde4.tar.gz") { }
   }:
 
   pkgs.mkShell {

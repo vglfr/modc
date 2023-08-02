@@ -3,60 +3,47 @@
 
 module Modc.AST where
 
-import Prelude hiding (unwords)
-
 import Data.List (intercalate)
-import Data.List.NonEmpty (NonEmpty, intersperse)
+import Data.List.NonEmpty (NonEmpty, intersperse, toList)
 import Data.String (IsString, fromString)
 import GHC.Show (showSpace)
 
 import Data.HashMap.Strict (HashMap, elems)
-import Data.Hashable (Hashable, hash, hashWithSalt)
 
-newtype Prog = Prog Context deriving Eq
+newtype Prog = Prog Context
 
 type Context = HashMap Id Comb
+type Id = String
 
 data Comb
   = Id := Exp
-  | Fun Id (NonEmpty Id) Exp Context
-  deriving Eq
-
-newtype Id = Id String deriving Eq
+  | Fun Id (NonEmpty Id) Exp
 
 data Exp
   = Bin Op Exp Exp
   | Exe Id (NonEmpty Exp)
   | Var Id
   | Val Double
-  deriving Eq
 
 data Op
   = Add
   | Sub
   | Mul
   | Div
-  deriving Eq
 
 instance Show Prog where
   show (Prog c) = intercalate "\n\n" . fmap show . elems $ c
 
 instance Show Comb where
-  show (i := e) = show i <> " = " <> show e
-  show (Fun i as e c) = show i <> " " <> unwords (fmap show as) <> " = " <> show e <> showCombs
-   where showCombs = if null c
-                     then ""
-                     else "\n where\n  " <> intercalate "\n  " (fmap show . elems $ c)
-
-instance Show Id where
-  show (Id s) = s
+  show (i := e) = i <> " = " <> show e
+  show (Fun i as e) = i <> " " <> (unwords . toList $ as) <> " = " <> show e
 
 instance Show Exp where
   showsPrec n e = case e of
                     Bin o x y -> let m = prec o
                                   in showParen (n > m) $ showsPrec m x . shows o . showsPrec (m+1) y
-                    Exe f es -> shows f . showSpace . showArgs es
-                    Var i -> shows i
+                    Exe f es -> showString f . showSpace . showArgs es
+                    Var i -> showString i
                     Val v -> let i = round v
                               in if v == fromInteger i
                                  then shows i
@@ -88,14 +75,4 @@ instance Fractional Exp where
   fromRational = Val . fromRational
 
 instance IsString Exp where
-  fromString = Var . Id
-
-instance IsString Id where
-  fromString = Id
-
-instance Hashable Id where
-  hash (Id i) = hash i
-  hashWithSalt n (Id i) = hashWithSalt n i
-
-unwords :: NonEmpty String -> String
-unwords = concat . intersperse " "
+  fromString = Var
