@@ -1,0 +1,30 @@
+cabal-version:   3.8
+name:            modc
+version:         0.0.1.0
+author:          vglfr
+maintainer:      vf.velt@gmail.com
+
+common common
+  ghc-options:
+    -Wall
+    -Wcompat
+    -Werror
+    -Widentities
+    -Wincomplete-uni-patterns
+    -Wpartial-fields
+    -Wredundant-constraints
+  build-depends:
+      base == 4.18.*
+    , hashable == 1.4.*
+    , unordered-containers == 0.2.*
+  default-Language:
+    GHC2021
+
+library
+  import:
+    common
+  exposed-modules:
+      Modc.AST
+    , Modc.Example
+  hs-source-dirs:
+    src
