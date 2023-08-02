@@ -13,15 +13,16 @@ import System.Process (readProcess)
 import Modc.AST
   (
     Op (Add, Div, Mul, Sub)
-  , Id
   )
 import Modc.VM
   (
-    Cons
+    BSS
+  , Data
   , Ins (Loa, Sav, Two)
+  , Name
   , Tape
+  , Text
   , Val (Ref)
-  , Vars
   )
 
 type Module = (String, String)
@@ -34,17 +35,17 @@ section s is = "section " <> s : fmap offset is
               then cs
               else "        " <> cs
 
-data' :: Cons -> [Line]
+data' :: Data -> [Line]
 data' cs = fmap (uncurry fconst) (toList cs)
  where
   fconst k v = "C" <> show v <> ":         dq " <> show k
 
-bss :: Vars -> [Line]
+bss :: BSS -> [Line]
 bss vs = "RES:        resq 1" : fmap fvar vs
  where
   fvar v = v <> ":          resq 1"
 
-text :: [Ins] -> [Line]
+text :: Text -> [Line]
 text is = main' <> concatMap block is
  where
   block i = comment (show i) : instr i
@@ -137,10 +138,10 @@ main (is,cs,vs,_) = ("main",) . unlines . intercalate (pure mempty) $
     , "        ret"
     ]
 
-compile :: Tape -> (Id, [Module])
+compile :: Tape -> (Name, [Module])
 compile t@(_,_,_,i) = (i, [printf64, main t])
 
-run :: (Id, [Module]) -> IO ()
+run :: (Name, [Module]) -> IO ()
 run (s,ms) = do
   mapM_ (createDirectoryIfMissing True) [aDir, oDir]
   mapM_ (\(_,c) -> putStrLn c) ms

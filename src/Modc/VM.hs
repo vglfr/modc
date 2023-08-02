@@ -18,9 +18,20 @@ import Modc.AST
   , Prog (Prog)
   )
 
-type Cons = HashMap Double Int
-type Vars = [String]
-type Tape = ([Ins], Cons, Vars, Id)
+type Data = HashMap Double Int
+type BSS  = [String]
+type Text = [Ins]
+type Name = String
+
+type Tape = (Text, Data, BSS, Name)
+
+-- data Tape = Tape
+--   {
+--     t :: Text
+--   , d :: Data
+--   , b :: BSS
+--   , n :: Name
+--   }
 
 data Ins
   = Two Op Val Val
@@ -43,7 +54,20 @@ instance Show Val where
   show (Tem x) = x
 
 class Spool a where
-  spool :: Cons -> a -> Tape
+  spool :: Data -> a -> Tape
+
+instance Spool Prog where
+  spool _ p@(Prog i c) = let cs' = flatten . graph $ p
+                          in foldr acc mempty cs'
+   where
+    acc s (is,cs,vs,_) = let (is',cs',vs',_) = spool cs . fromJust $ c !? s
+                          in (is' <> is,cs' <> cs,vs' <> vs,i)
+
+instance Spool Comb where
+  spool cs (i := e) = let (is,cs',_,_) = spool cs e
+                       in if i == "main"
+                          then (is,cs',mempty,mempty)
+                          else (is <> [Sav i], cs', [i], mempty)
 
 instance Spool Exp where
   spool cs t = let es = flat t
@@ -74,19 +98,6 @@ instance Spool Exp where
     lookupd k m = case Data.HashMap.Strict.lookup k m of
                     Just v  -> (v, m)
                     Nothing -> let s = size m in (s, insert k s m)
-
-instance Spool Comb where
-  spool cs (i := e) = let (is,cs',_,_) = spool cs e
-                       in if i == "main"
-                          then (is,cs',mempty,mempty)
-                          else (is <> [Sav i], cs', [i], mempty)
-
-instance Spool Prog where
-  spool _ p@(Prog i c) = let cs' = flatten . graph $ p
-                          in foldr acc mempty cs'
-   where
-    acc s (is,cs,vs,_) = let (is',cs',vs',_) = spool cs . fromJust $ c !? s
-                          in (is' <> is,cs' <> cs,vs' <> vs,i)
 
 graph :: Prog -> Gr String String
 graph (Prog _ cs) = let (ks,vs) = unzip . toList $ cs

@@ -36,22 +36,24 @@ p3 = Prog "p3" $ M.fromList
   ]
 
 {- 0.5
+x = 5
 main = (3 + 2) / ((3 - 2) * 4 + 6)
 -}
 p4 :: Prog
 p4 = Prog "p4" $ M.fromList
   [
-    ("main", "main" := Bin Div (Bin Add 3 2) (Bin Add (Bin Mul (Bin Sub 3 2) 4) 6))
+    ("x", "x" := 5)
+  , ("main", "main" := Bin Div (Bin Add 3 2) (Bin Add (Bin Mul (Bin Sub 3 2) 4) 6))
   ]
 
-{- 10
-x = 5
+{- 6
+x = 5 - 2
 main = x * 2
 -}
 p5 :: Prog
 p5 = Prog "p5" $ M.fromList
   [
-    ("x", "x" := 5)
+    ("x", "x" := Bin Sub 5 2)
   , ("main", "main" := Bin Mul "x" 2)
   ]
 
@@ -68,15 +70,15 @@ p6 = Prog "p6" $ M.fromList
   , ("main", "main" := Bin Sub (Bin Add "x" 1) "y")
   ]
 
-{- -3
+{- -2
 f x = 2 - x
-main = f 3 - 2
+main = f 3 - 2 + f 1
 -}
 p7 :: Prog
 p7 = Prog "p7" $ M.fromList
   [
     ("f", Fun "f" (singleton "x") (Bin Sub 2 "x"))
-  , ("main", "main" := Bin Sub (Exe "f" $ singleton 3) 2)
+  , ("main", "main" := Bin Add (Bin Sub (Exe "f" $ singleton 3) 2) (Exe "f" $ singleton 1))
   ]
 
 {- -5

@@ -1,10 +1,9 @@
 ## modc - Language Which Compiles ASM in Modules
 
 + migrate from numc
-- native asmgen
-  + move existing asm to modules
-  - function
+- spool Prog's
 
+- compile Prog's
 - comparisons
 - conditionals
 - boolean types
