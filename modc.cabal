@@ -15,6 +15,10 @@ common common
     -Wredundant-constraints
   build-depends:
       base == 4.18.*
+    , directory == 1.3.*
+    , fgl == 5.8.*
+    , hashable == 1.4.*
+    , process == 1.6.*
     , unordered-containers == 0.2.*
   default-Language:
     GHC2021
@@ -24,6 +28,8 @@ library
     common
   exposed-modules:
       Modc.AST
+    , Modc.Compiler
     , Modc.Example
+    , Modc.VM
   hs-source-dirs:
     src

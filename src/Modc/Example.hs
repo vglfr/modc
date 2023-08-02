@@ -15,13 +15,13 @@ import Modc.AST
 {- _|_
 -}
 p1 :: Prog
-p1 = Prog mempty
+p1 = Prog "p1" mempty
 
 {- _|_
 x = 3 * 2
 -}
 p2 :: Prog
-p2 = Prog $ M.fromList
+p2 = Prog "p2" $ M.fromList
   [
     ("x", "x" := Bin Mul 3 2)
   ]
@@ -30,7 +30,7 @@ p2 = Prog $ M.fromList
 main = 3 * 2
 -}
 p3 :: Prog
-p3 = Prog $ M.fromList
+p3 = Prog "p3" $ M.fromList
   [
     ("main", "main" := Bin Mul 3 2)
   ]
@@ -39,7 +39,7 @@ p3 = Prog $ M.fromList
 main = (3 + 2) / ((3 - 2) * 4 + 6)
 -}
 p4 :: Prog
-p4 = Prog $ M.fromList
+p4 = Prog "p4" $ M.fromList
   [
     ("main", "main" := Bin Div (Bin Add 3 2) (Bin Add (Bin Mul (Bin Sub 3 2) 4) 6))
   ]
@@ -49,7 +49,7 @@ x = 5
 main = x * 2
 -}
 p5 :: Prog
-p5 = Prog $ M.fromList
+p5 = Prog "p5" $ M.fromList
   [
     ("x", "x" := 5)
   , ("main", "main" := Bin Mul "x" 2)
@@ -61,7 +61,7 @@ y = x * 2
 main = x + 1 - y
 -}
 p6 :: Prog
-p6 = Prog $ M.fromList
+p6 = Prog "p6" $ M.fromList
   [
     ("x", "x" := 5)
   , ("y", "y" := Bin Mul "x" 2)
@@ -73,7 +73,7 @@ f x = 2 - x
 main = f 3 - 2
 -}
 p7 :: Prog
-p7 = Prog $ M.fromList
+p7 = Prog "p7" $ M.fromList
   [
     ("f", Fun "f" (singleton "x") (Bin Sub 2 "x"))
   , ("main", "main" := Bin Sub (Exe "f" $ singleton 3) 2)
@@ -85,7 +85,7 @@ g y = y * 4
 main = f 3 4 - g 2
 -}
 p8 :: Prog
-p8 = Prog $ M.fromList
+p8 = Prog "p8" $ M.fromList
   [
     ("f", Fun "f" (L.fromList ["x", "y"]) (Bin Add (Bin Sub 2 "x") "y"))
   , ("g", Fun "g" (singleton "x") (Bin Mul "x" 4))
@@ -98,7 +98,7 @@ f x = y * 2 - x
 main = f 3 - 2 * y
 -}
 p9 :: Prog
-p9 = Prog $ M.fromList
+p9 = Prog "p9" $ M.fromList
   [
     ("y", "y" := 5)
   , ("f", Fun "f" (singleton "x") (Bin Sub (Bin Mul "y" 2) "x"))
@@ -118,7 +118,7 @@ main = f 3 - 2 * y + z / g z 7
          -2.72...
 -}
 p10 :: Prog
-p10 = Prog $ M.fromList
+p10 = Prog "p10" $ M.fromList
   [
     ("y", "y" := 5)
   , ("z", "z" := 3)

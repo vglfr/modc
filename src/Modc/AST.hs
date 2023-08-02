@@ -10,7 +10,7 @@ import GHC.Show (showSpace)
 
 import Data.HashMap.Strict (HashMap, elems)
 
-newtype Prog = Prog Context
+data Prog = Prog Id Context
 
 type Context = HashMap Id Comb
 type Id = String
@@ -24,15 +24,17 @@ data Exp
   | Exe Id (NonEmpty Exp)
   | Var Id
   | Val Double
+  deriving Eq
 
 data Op
   = Add
   | Sub
   | Mul
   | Div
+  deriving Eq
 
 instance Show Prog where
-  show (Prog c) = intercalate "\n\n" . fmap show . elems $ c
+  show (Prog _ c) = intercalate "\n\n" . fmap show . elems $ c
 
 instance Show Comb where
   show (i := e) = i <> " = " <> show e
