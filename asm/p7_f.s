@@ -1,19 +1,23 @@
-global _fadd
+global _f
+
+section .data
+        C0          dq 2.0
 
 section .bss
-        RES         resq 1
+        it          resq 1
 
 section .text
-_fadd:
+_f:
+        ; f x = 2 - x
+
         push        rbp
         mov         rbp, rsp
 
-        fld         qword [rbp+24]
-        fld         qword [rbp+16]
-        fadd
-
-        fstp        qword [RES]
-        mov         rax, [RES]
+        ; rax <- [C0] - [a1]
+        fld         qword [C0]
+        fsub        qword [rbp+16]
+        fstp        qword [it]
+        mov         rax, [it]
 
         pop         rbp
         ret

@@ -1,44 +1,32 @@
 global main
 
 extern _printf_f64
-extern _fadd
 
 section .data
-        C1:         dq 1.1111111
-        C2:         dq 2.2222222
+        C0          dq 5.0
+        C1          dq 2.0
 
 section .bss
-        RES         resq 1
+        it          resq 1
+        x           resq 1
 
 section .text
 main:
-        push        qword [C1]
-        call        _printf_f64
-        add         rsp, 8
+        ; x = 5 - 2
+        ; main = x * 2
 
-        push        qword [C1]
-        push        qword [C2]
-        call        _fadd
-        add         rsp, 16
+        ; [x] <- [C0] - [C1]
+        fld         qword [C0]
+        fsub        qword [C1]
+        fstp        qword [x]
 
-        push        rax
-        call        _printf_f64
-        add         rsp, 8
+        ; [it] <- [x] * [C1]
+        fld         qword [x]
+        fmul        qword [C1]
+        fstp        qword [it]
 
-        push        qword [C1]
-        call        _printf_f64
-        add         rsp, 8
-
-        push        qword [C2]
-        push        qword [C2]
-        call        _fadd
-        add         rsp, 16
-
-        push        rax
-        call        _printf_f64
-        add         rsp, 8
-
-        push        qword [C1]
+        ; printf_f64 [it]
+        push        qword [it]
         call        _printf_f64
         add         rsp, 8
 
