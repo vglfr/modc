@@ -2,6 +2,7 @@
 
 module Modc.Compiler where
 
+{-
 import Data.List (intercalate)
 import Numeric (showHex)
 
@@ -27,6 +28,8 @@ import Modc.VM
 
 type Module = (String, String)
 type Line = String
+
+-- data Module = Module { name :: String, code :: String }
 
 section :: String -> [Line] -> [Line]
 section s is = "section " <> s : fmap offset is
@@ -138,8 +141,18 @@ main (is,cs,vs,_) = ("main",) . unlines . intercalate (pure mempty) $
     , "        ret"
     ]
 
+-- compile :: Spool Ins -> Spool Code
+-- compile t@(_,_,_,i) = undefined
+  -- for each Ins make Code
+    -- create bss  section from [Ins]
+    -- create data section from [Ins]
+  -- add printf_f64
+
 compile :: Tape -> (Name, [Module])
 compile t@(_,_,_,i) = (i, [printf64, main t])
+
+-- run :: Spool String -> IO ()
+-- run (s,ms) = undefined
 
 run :: (Name, [Module]) -> IO ()
 run (s,ms) = do
@@ -153,3 +166,4 @@ run (s,ms) = do
   aDir = hDir <> "/asm/"
   oDir = hDir <> "/obj/"
   hDir = "/tmp/modc/" <> s <> "-" <> showHex (abs . hash . concatMap snd $ ms) mempty <> "/"
+-}

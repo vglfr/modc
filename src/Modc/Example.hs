@@ -128,3 +128,57 @@ p10 = Prog "p10" $ M.fromList
   , ("g", Fun "g" (L.fromList ["y", "u"]) (Bin Add (Bin Add "z" (Bin Div "y" 3)) "u"))
   , ("main", "main" := Bin Add (Bin Sub (Exe "f" $ singleton 3) (Bin Mul 2 "y")) (Bin Div 3 (Exe "g" $ L.fromList ["z", 7])))
   ]
+
+{- _|_
+main = x * 2
+-}
+p11 :: Prog
+p11 = Prog "p11" $ M.fromList
+  [
+    ("main", "main" := Bin Mul "x" 2)
+  ]
+
+{- _|_
+x = y
+y = x
+main = x * 2
+-}
+p12 :: Prog
+p12 = Prog "p12" $ M.fromList
+  [
+    ("x", "x" := "y")
+  , ("y", "y" := "x")
+  , ("main", "main" := Bin Mul "x" 2)
+  ]
+
+{- -3
+z = 3
+y = 5
+f x = y * 2 - x
+main = f z - 2 * y
+-}
+p13 :: Prog
+p13 = Prog "p13" $ M.fromList
+  [
+    ("z", "z" := 5)
+  , ("y", "y" := 5)
+  , ("f", Fun "f" (singleton "x") (Bin Sub (Bin Mul "y" 2) "x"))
+  , ("main", "main" := Bin Sub (Exe "f" $ singleton "z") (Bin Mul 2 "y"))
+  ]
+
+{- -2
+a = 2 - 3 -- -1
+b = 5 * a - a -- -6
+f x = a * x
+g b c = a + b - c + 8
+main = a - 2 + b * f 3 / g a (b * 2)
+-}
+-- p14 :: Prog
+-- p14 = Prog "p14" $ M.fromList
+--   [
+--     ("a", "a" := Bin Sub 2 3)
+--   , ("b", "b" := Bin Sub (Bin Mul 5 "a") "a")
+--   , ("f", Fun "f" (singleton "x") (Bin Mul "a" "x"))
+--   , ("g", Fun "g" (L.fromList ["b", "c"]) (Bin Add (Bin Add "a" "b") "c"))
+--   , ("main", "main" := Bin Add (Bin Sub "a" 2) (Bin Div (Bin Mul "b" (Exe "f" $ singleton 3)) (Exe "g" (L.fromList ["a", Bin Mul "b" 2]))))
+--   ]

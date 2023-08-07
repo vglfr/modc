@@ -1,37 +1,36 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+-- {-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module Modc.VM where
 
-import Data.List (elemIndex, lookup, nub)
+import Data.List (elemIndex, nub, intercalate)
+import Data.List.NonEmpty as L (toList)
 import Data.Maybe (fromJust)
 import Data.Tuple (swap)
 
 import Data.Graph.Inductive (Adj, Context, Gr, buildGr, postorder, dff, labNodes, lab)
-import Data.HashMap.Strict ((!?), HashMap, insert, lookup, size, toList)
+import Data.Graph.Inductive.Query.DFS (scc)
+-- import Data.HashMap.Strict ((!?), HashMap, insert, lookup, member, size, toList)
+import Data.HashMap.Strict as M (HashMap, size, toList)
 
 import Modc.AST
   (
     Comb ((:=), Fun)
-  , Exp (Bin, Val, Var)
+  , Combs
+  , Exp (Bin, Exe, Val, Var)
   , Id
   , Op
   , Prog (Prog)
   )
 
-type Data = HashMap Double Int
-type BSS  = [String]
-type Text = [Ins]
+-- type Data = HashMap Double Int
+-- type BSS  = [String]
+-- type Tape = (Text, Data, BSS, Name)
+
+data Spool a = Spool { name :: Name, mods :: HashMap Name [a] }
+
 type Name = String
-
-type Tape = (Text, Data, BSS, Name)
-
--- data Tape = Tape
---   {
---     t :: Text
---   , d :: Data
---   , b :: BSS
---   , n :: Name
---   }
+type Text = [Ins]
 
 data Ins
   = Two Op Val Val
@@ -53,25 +52,61 @@ instance Show Val where
   show (Ref x) = "[" <> show x <> "]"
   show (Tem x) = x
 
-class Spool a where
-  spool :: Data -> a -> Tape
+spool :: Prog -> Spool Ins
+spool (Prog i cs) = let _is = unwind . graph $ cs
+                        ms = undefined :: HashMap Id [Ins] -- fromList . spool' $ cs
+                     in Spool i ms
 
-instance Spool Prog where
-  spool _ p@(Prog i c) = let cs' = flatten . graph $ p
-                          in foldr acc mempty cs'
-   where
-    acc s (is,cs,vs,_) = let (is',cs',vs',_) = spool cs . fromJust $ c !? s
-                          in (is' <> is,cs' <> cs,vs' <> vs,i)
+-- spool p@(Prog i c) = let cs' = flatten . graph $ p
+--                       in foldr acc mempty cs'
+ -- where
+  -- acc s (is,cs,vs,_) = let (is',cs',vs',_) = flip spool' cs . fromJust $ c !? s
+  --                       in (is' <> is,cs' <> cs,vs' <> vs,i)
+
+graph' :: Prog -> Gr String String
+graph' (Prog _ cs) = graph cs
+
+graph :: Combs -> Gr String String
+graph cs = let (ks,vs) = unzip . M.toList $ cs
+            in buildGr . foldr (acc ks) mempty . zip [0..size cs - 1] $ vs
+ where
+  acc :: [Id] -> (Int,Comb) -> [Context String String] -> [Context String String]
+  acc is (n,c) a = case c of
+                     i := e      -> ([],n,i,vars e is) : a
+                     Fun i is' e -> ([],n,i,vars e (is <> L.toList is')) : a -- bound v free name clash
+  vars :: Exp -> [Id] -> Adj String
+  vars e is = case e of
+                Bin _ e1 e2  -> nub $ vars e1 is <> vars e2 is
+                Var i -> pure $ edge i is
+                Exe i is' -> edge i is : concatMap (flip vars is) is'
+                Val _ -> mempty
+  edge i is = case elemIndex i is of
+                 Just n  -> (i,n)
+                 Nothing -> error $ "undefined identifier " <> show i
+
+unwind :: Gr String String -> [Id]
+unwind g = case cycles of
+             [] -> fmap (fromJust . lab g) . postorder . head . dff [main] $ g
+             cs -> error $ "cyclic references: " <> unwords (fmap (intercalate "<>") cs)
+ where
+  cycles = fmap (fmap (fromJust . lab g)) . filter ((>1) . length) . scc $ g
+  !main = case lookup "main" . fmap swap . labNodes $ g of
+            Just x  -> x
+            Nothing -> error "program must have main"
+
+{-
+class Spool a where
+  spool' :: a -> Combs -> Tape
 
 instance Spool Comb where
-  spool cs (i := e) = let (is,cs',_,_) = spool cs e
-                       in if i == "main"
-                          then (is,cs',mempty,mempty)
-                          else (is <> [Sav i], cs', [i], mempty)
+  spool' (i := e) cs = let (is,cs',_,_) = spool' e cs
+                        in if i == "main"
+                           then (is,cs',mempty,mempty)
+                           else (is <> [Sav i], cs', [i], mempty)
 
 instance Spool Exp where
-  spool cs t = let es = flat t
-                in foldr (acc es) (mempty,cs,mempty,mempty) es
+  spool' t cs = let es = flat t
+                 in foldr (acc es) (mempty,cs,mempty,mempty) es
    where
     flat e = case e of
                Bin _ a b -> flat' a <> flat' b <> [e]
@@ -99,23 +134,4 @@ instance Spool Exp where
                     Just v  -> (v, m)
                     Nothing -> let s = size m in (s, insert k s m)
 
-graph :: Prog -> Gr String String
-graph (Prog _ cs) = let (ks,vs) = unzip . toList $ cs
-                     in buildGr . foldr (acc ks) mempty . zip [0..size cs - 1] $ vs
- where
-  acc :: [Id] -> (Int,Comb) -> [Context String String] -> [Context String String]
-  acc is (n,c) a = case c of
-                     i := e    -> ([],n,i,vars e is) : a
-                     Fun i _ e -> ([],n,i,vars e is) : a
-  vars :: Exp -> [Id] -> Adj String
-  vars e is = case e of
-                Bin _ e1 e2  -> nub $ vars e1 is <> vars e2 is
-                Var i -> [(i,fromJust $ elemIndex i is)]
-                Val _ -> mempty
-  -- throw "undefined reference" on lookup error
-
-flatten :: Gr String String -> [String]
-flatten g = fmap (fromJust . lab g) . postorder . head . dff [main''] $ g
- where
-  main'' = fromJust . Data.List.lookup "main" . fmap swap . labNodes $ g
-  -- throw "cyclic reference" on bidirectioned edge
+-}

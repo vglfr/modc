@@ -10,9 +10,9 @@ import GHC.Show (showSpace)
 
 import Data.HashMap.Strict (HashMap, elems)
 
-data Prog = Prog Id Context
+data Prog = Prog Id Combs
 
-type Context = HashMap Id Comb
+type Combs = HashMap Id Comb
 type Id = String
 
 data Comb
@@ -34,7 +34,7 @@ data Op
   deriving Eq
 
 instance Show Prog where
-  show (Prog _ c) = intercalate "\n\n" . fmap show . elems $ c
+  show (Prog _ cs) = intercalate "\n\n" . fmap show . elems $ cs -- sort cs in graph order, ass then fun
 
 instance Show Comb where
   show (i := e) = i <> " = " <> show e
