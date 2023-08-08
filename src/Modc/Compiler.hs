@@ -2,51 +2,113 @@
 
 module Modc.Compiler where
 
-{-
 import Data.List (intercalate)
 import Numeric (showHex)
 
-import Data.HashMap.Strict (toList)
+-- import Data.HashMap.Strict (toList)
 import Data.Hashable (hash)
 import System.Directory (createDirectoryIfMissing)
 import System.Process (readProcess)
 
-import Modc.AST
-  (
-    Op (Add, Div, Mul, Sub)
-  )
+-- import Modc.AST
+--   (
+--     Op (Add, Div, Mul, Sub)
+--   )
 import Modc.VM
   (
-    BSS
-  , Data
-  , Ins (Loa, Sav, Two)
-  , Name
-  , Tape
-  , Text
-  , Val (Ref)
+    -- Ins (Loa, Sav, Two)
+    Label
+  -- , Name
+  , Spool (Spool, content, name)
+  -- , Val (Ref)
   )
 
-type Module = (String, String)
 type Line = String
 
--- data Module = Module { name :: String, code :: String }
+run :: Spool Line -> IO ()
+run s = do
+  createDirectoryIfMissing True hDir
+  putStrLn . unlines $ content s
+  writeFile (hDir <> name s <> ".s") . unlines $ content s
+  readProcess "nasm" ["-g", "-f", "elf64", hDir <> name s <> ".s", "-o", hDir <> name s <> ".o"] mempty >>= putStrLn
+  readProcess "gcc" ["-z", "noexecstack", "-o", hDir <> "a.out", hDir <> name s <> ".o"] mempty >>= putStrLn
+  readProcess (hDir <> "a.out") mempty mempty >>= putStrLn
+ where
+  hDir = "/tmp/modc/" <> name s <> "-" <> showHex (abs . hash $ content s) mempty <> "/"
 
+compile :: Spool Label -> Spool Line
+compile (Spool n ls) = Spool n $ intercalate [""]
+  (
+     global
+  <> extern
+  <> data' ls
+  <> bss ls
+  <> concatMap text ls
+  <> printf64
+  )
+
+global :: [[Line]]
+global = pure $ pure "global main"
+
+extern :: [[Line]]
+extern = pure $ pure "extern printf"
+
+data' :: [Label] -> [[Line]]
+data' _ = pure
+  [
+    "section .data"
+  ]
+
+-- data' :: Data -> [Line]
+-- data' cs = fmap (uncurry fconst) (toList cs)
+--  where
+--   fconst k v = "C" <> show v <> ":         dq " <> show k
+
+bss :: [Label] -> [[Line]]
+bss _ = pure
+  [
+    "section .bss"
+  ]
+
+-- bss :: BSS -> [Line]
+-- bss vs = "RES:        resq 1" : fmap fvar vs
+--  where
+--   fvar v = v <> ":          resq 1"
+
+text :: Label -> [[Line]]
+text _ = pure
+  [
+    "section .text"
+  ]
+-- for each Ins make Line
+  -- create bss  section from [Ins]
+  -- create data section from [Ins]
+-- add printf_f64
+
+printf64 :: [[Line]]
+printf64 = pure
+  [
+    "printf_f64:"
+  , "        push        rbp"
+  , "        mov         rbp, rsp"
+  , ""
+  , "        mov         rdi, FST"
+  , "        mov         rax, 1"
+  , "        movsd       xmm0, qword [rbp+16]"
+  , "        call        printf"
+  , ""
+  , "        pop         rbp"
+  , "        xor         rax, rax"
+  , "        ret"
+  ]
+
+{-
 section :: String -> [Line] -> [Line]
 section s is = "section " <> s : fmap offset is
  where
   offset cs = if last cs == ':'
               then cs
               else "        " <> cs
-
-data' :: Data -> [Line]
-data' cs = fmap (uncurry fconst) (toList cs)
- where
-  fconst k v = "C" <> show v <> ":         dq " <> show k
-
-bss :: BSS -> [Line]
-bss vs = "RES:        resq 1" : fmap fvar vs
- where
-  fvar v = v <> ":          resq 1"
 
 text :: Text -> [Line]
 text is = main' <> concatMap block is
@@ -81,43 +143,6 @@ text is = main' <> concatMap block is
 comment :: String -> Line
 comment s = "; " <> s
 
-global :: String -> [Line]
-global s = pure $ "global " <> s
-
-extern :: String -> [Line]
-extern s = pure $ "extern " <> s
-
-printf64 :: Module
-printf64 = ("_printf_f64",) . unlines . intercalate (pure mempty) $
-  [
-    global "_printf_f64"
-  , extern "printf"
-  , data''
-  , text'
-  ]
- where
-  data'' =
-    [
-      "section .data"
-    , "        FST:        db \"%.2f\", 10, 0"
-    ]
-  text' =
-    [
-      "section .text"
-    , "_printf_f64:"
-    , "        push        rbp"
-    , "        mov         rbp, rsp"
-    , ""
-    , "        mov         rdi, FST"
-    , "        mov         rax, 1"
-    , "        movsd       xmm0, qword [rbp+16]"
-    , "        call        printf"
-    , ""
-    , "        pop         rbp"
-    , "        xor         rax, rax"
-    , "        ret"
-    ]
-
 main :: Tape -> Module
 main (is,cs,vs,_) = ("main",) . unlines . intercalate (pure mempty) $
   [
@@ -140,30 +165,4 @@ main (is,cs,vs,_) = ("main",) . unlines . intercalate (pure mempty) $
     , "        add         rsp, 8"
     , "        ret"
     ]
-
--- compile :: Spool Ins -> Spool Code
--- compile t@(_,_,_,i) = undefined
-  -- for each Ins make Code
-    -- create bss  section from [Ins]
-    -- create data section from [Ins]
-  -- add printf_f64
-
-compile :: Tape -> (Name, [Module])
-compile t@(_,_,_,i) = (i, [printf64, main t])
-
--- run :: Spool String -> IO ()
--- run (s,ms) = undefined
-
-run :: (Name, [Module]) -> IO ()
-run (s,ms) = do
-  mapM_ (createDirectoryIfMissing True) [aDir, oDir]
-  mapM_ (\(_,c) -> putStrLn c) ms
-  mapM_ (\(n,c) -> writeFile (aDir <> n <> ".s") c) ms
-  mapM_ (\(n,_) -> readProcess "nasm" ["-g", "-f", "elf64", aDir <> n <> ".s", "-o", oDir <> n <> ".o"] mempty) ms
-  readProcess "gcc" (["-z", "noexecstack", "-o", hDir <> "a.out"] <> map (\(n,_) -> oDir <> n <> ".o") ms) mempty >>= putStrLn
-  readProcess (hDir <> "a.out") mempty mempty >>= putStrLn
- where
-  aDir = hDir <> "/asm/"
-  oDir = hDir <> "/obj/"
-  hDir = "/tmp/modc/" <> s <> "-" <> showHex (abs . hash . concatMap snd $ ms) mempty <> "/"
 -}

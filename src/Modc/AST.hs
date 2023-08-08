@@ -3,8 +3,7 @@
 
 module Modc.AST where
 
-import Data.List (intercalate)
-import Data.List.NonEmpty (NonEmpty, intersperse, toList)
+import Data.List (intercalate, intersperse)
 import Data.String (IsString, fromString)
 import GHC.Show (showSpace)
 
@@ -17,11 +16,11 @@ type Id = String
 
 data Comb
   = Id := Exp
-  | Fun Id (NonEmpty Id) Exp
+  | Fun Id [Id] Exp
 
 data Exp
   = Bin Op Exp Exp
-  | Exe Id (NonEmpty Exp)
+  | Exe Id [Exp]
   | Var Id
   | Val Double
   deriving Eq
@@ -38,7 +37,7 @@ instance Show Prog where
 
 instance Show Comb where
   show (i := e) = i <> " = " <> show e
-  show (Fun i as e) = i <> " " <> (unwords . toList $ as) <> " = " <> show e
+  show (Fun i as e) = i <> " " <> unwords as <> " = " <> show e
 
 instance Show Exp where
   showsPrec n e = case e of

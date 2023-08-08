@@ -4,14 +4,13 @@
 module Modc.VM where
 
 import Data.List (elemIndex, nub, intercalate)
-import Data.List.NonEmpty as L (toList)
 import Data.Maybe (fromJust)
 import Data.Tuple (swap)
 
 import Data.Graph.Inductive (Adj, Context, Gr, buildGr, postorder, dff, labNodes, lab)
 import Data.Graph.Inductive.Query.DFS (scc)
 -- import Data.HashMap.Strict ((!?), HashMap, insert, lookup, member, size, toList)
-import Data.HashMap.Strict as M (HashMap, size, toList)
+import Data.HashMap.Strict ((!?), size, toList)
 
 import Modc.AST
   (
@@ -27,20 +26,21 @@ import Modc.AST
 -- type BSS  = [String]
 -- type Tape = (Text, Data, BSS, Name)
 
-data Spool a = Spool { name :: Name, mods :: HashMap Name [a] }
+data Spool a = Spool { name :: Name, content :: [a] } deriving Show
 
 type Name = String
-type Text = [Ins]
+type Label = (Name,[Ins])
 
 data Ins
   = Two Op Val Val
   | Loa Val
   | Sav String
+  -- | Call String
 
 data Val
-  = Con Int
+  = Con Double
   | Ref Int
-  | Tem String
+  | Bss String
 
 instance Show Ins where
   show (Two o a b) = show a <> show o <> show b
@@ -48,55 +48,50 @@ instance Show Ins where
   show (Sav v) = v
 
 instance Show Val where
-  show (Con x) = "C" <> show x
+  show (Con x) = show x
   show (Ref x) = "[" <> show x <> "]"
-  show (Tem x) = x
+  show (Bss x) = x
 
-spool :: Prog -> Spool Ins
-spool (Prog i cs) = let _is = unwind . graph $ cs
-                        ms = undefined :: HashMap Id [Ins] -- fromList . spool' $ cs
-                     in Spool i ms
-
--- spool p@(Prog i c) = let cs' = flatten . graph $ p
---                       in foldr acc mempty cs'
- -- where
-  -- acc s (is,cs,vs,_) = let (is',cs',vs',_) = flip spool' cs . fromJust $ c !? s
-  --                       in (is' <> is,cs' <> cs,vs' <> vs,i)
-
-graph' :: Prog -> Gr String String
-graph' (Prog _ cs) = graph cs
-
-graph :: Combs -> Gr String String
-graph cs = let (ks,vs) = unzip . M.toList $ cs
-            in buildGr . foldr (acc ks) mempty . zip [0..size cs - 1] $ vs
+spool :: Prog -> Spool Label
+spool (Prog i cs) = let is = unwind . graph $ cs
+                     in Spool i (fmap f is)
  where
-  acc :: [Id] -> (Int,Comb) -> [Context String String] -> [Context String String]
-  acc is (n,c) a = case c of
-                     i := e      -> ([],n,i,vars e is) : a
-                     Fun i is' e -> ([],n,i,vars e (is <> L.toList is')) : a -- bound v free name clash
-  vars :: Exp -> [Id] -> Adj String
-  vars e is = case e of
-                Bin _ e1 e2  -> nub $ vars e1 is <> vars e2 is
-                Var i -> pure $ edge i is
-                Exe i is' -> edge i is : concatMap (flip vars is) is'
-                Val _ -> mempty
-  edge i is = case elemIndex i is of
-                 Just n  -> (i,n)
-                 Nothing -> error $ "undefined identifier " <> show i
+  f i' = (i',spool' . expr . fromJust $ cs !? i')
 
-unwind :: Gr String String -> [Id]
-unwind g = case cycles of
-             [] -> fmap (fromJust . lab g) . postorder . head . dff [main] $ g
-             cs -> error $ "cyclic references: " <> unwords (fmap (intercalate "<>") cs)
+expr :: Comb -> Exp
+expr (_ := e) = e
+expr (Fun _ _ e) = e
+
+main' :: Prog -> Exp
+main' (Prog _ cs) = expr . fromJust $ cs !? "main"
+
+spool' :: Exp -> [Ins]
+spool' = fmap acc . flat
  where
-  cycles = fmap (fmap (fromJust . lab g)) . filter ((>1) . length) . scc $ g
-  !main = case lookup "main" . fmap swap . labNodes $ g of
-            Just x  -> x
-            Nothing -> error "program must have main"
+  acc e = case e of
+            -- Bin o a b -> let (v1, cs1) = val a cs' es e
+            --                  (v2, cs2) = val b cs1 es e
+            --               in (Two o v1 v2 : is, cs2, vs, mempty)
+            -- Bin _ _ _ -> undefined
+            -- Exe _ _ -> undefined
+            Val v -> Loa $ Con v
+            -- Var i -> Loa $ Bss i
+
+flat :: Exp -> [Exp]
+flat e = case e of
+           Bin _ a b -> filter (not . unary) (flat a <> flat b <> [e])
+           Exe _ as -> filter (not . unary) (concatMap flat as <> [e])
+           Val _ -> [e]
+           Var _ -> [e]
+ where
+  unary e' = case e' of
+               Val _ -> True
+               Var _ -> True
+               _ -> False
 
 {-
 class Spool a where
-  spool' :: a -> Combs -> Tape
+  spool' :: a -> Label
 
 instance Spool Comb where
   spool' (i := e) cs = let (is,cs',_,_) = spool' e cs
@@ -135,3 +130,40 @@ instance Spool Exp where
                     Nothing -> let s = size m in (s, insert k s m)
 
 -}
+
+-- spool p@(Prog i c) = let cs' = flatten . graph $ p
+--                       in foldr acc mempty cs'
+ -- where
+  -- acc s (is,cs,vs,_) = let (is',cs',vs',_) = flip spool' cs . fromJust $ c !? s
+  --                       in (is' <> is,cs' <> cs,vs' <> vs,i)
+
+-- graph' :: Prog -> Gr String String
+-- graph' (Prog _ cs) = graph cs
+
+graph :: Combs -> Gr String String
+graph cs = let (ks,vs) = unzip . toList $ cs
+            in buildGr . foldr (acc ks) mempty . zip [0..size cs - 1] $ vs
+ where
+  acc :: [Id] -> (Int,Comb) -> [Context String String] -> [Context String String]
+  acc is (n,c) a = case c of
+                     i := e      -> ([],n,i,vars e is) : a
+                     Fun i is' e -> ([],n,i,vars e (is <> is')) : a -- bound v free name clash
+  vars :: Exp -> [Id] -> Adj String
+  vars e is = case e of
+                Bin _ e1 e2  -> nub $ vars e1 is <> vars e2 is
+                Var i -> pure $ edge i is
+                Exe i is' -> edge i is : concatMap (flip vars is) is'
+                Val _ -> mempty
+  edge i is = case elemIndex i is of
+                 Just n  -> (i,n)
+                 Nothing -> error $ "undefined identifier " <> show i
+
+unwind :: Gr String String -> [Id]
+unwind g = case cycles of
+             [] -> fmap (fromJust . lab g) . postorder . head . dff [main] $ g -- ass first
+             cs -> error $ "cyclic references: " <> unwords (fmap (intercalate "<>") cs)
+ where
+  cycles = fmap (fmap (fromJust . lab g)) . filter ((>1) . length) . scc $ g
+  !main = case lookup "main" . fmap swap . labNodes $ g of
+            Just x  -> x
+            Nothing -> error "program must have main"

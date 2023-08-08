@@ -2,14 +2,25 @@
 
 module Modc.Example where
 
-import Data.List.NonEmpty as L (fromList, singleton)
-import Data.HashMap.Strict as M (fromList)
+import Data.HashMap.Strict (fromList)
+
 import Modc.AST
   (
     Comb ((:=), Fun)
   , Exp (Bin, Exe)
   , Op (Add, Div, Mul, Sub)
   , Prog (Prog)
+  )
+import Modc.Compiler
+  (
+    Line
+  )
+import Modc.VM
+  (
+    Ins (Loa)
+  , Label
+  , Spool (Spool)
+  , Val (Con)
   )
 
 {- _|_
@@ -21,7 +32,7 @@ p1 = Prog "p1" mempty
 x = 3 * 2
 -}
 p2 :: Prog
-p2 = Prog "p2" $ M.fromList
+p2 = Prog "p2" $ fromList
   [
     ("x", "x" := Bin Mul 3 2)
   ]
@@ -30,9 +41,18 @@ p2 = Prog "p2" $ M.fromList
 main = 3 * 2
 -}
 p3 :: Prog
-p3 = Prog "p3" $ M.fromList
+p3 = Prog "p3" $ fromList
   [
     ("main", "main" := Bin Mul 3 2)
+  ]
+
+s3 :: Spool Label
+s3 = Spool "p3"
+  [
+    (
+      "main"
+    , []
+    )
   ]
 
 {- 0.5
@@ -40,7 +60,7 @@ x = 5
 main = (3 + 2) / ((3 - 2) * 4 + 6)
 -}
 p4 :: Prog
-p4 = Prog "p4" $ M.fromList
+p4 = Prog "p4" $ fromList
   [
     ("x", "x" := 5)
   , ("main", "main" := Bin Div (Bin Add 3 2) (Bin Add (Bin Mul (Bin Sub 3 2) 4) 6))
@@ -51,7 +71,7 @@ x = 5 - 2
 main = x * 2
 -}
 p5 :: Prog
-p5 = Prog "p5" $ M.fromList
+p5 = Prog "p5" $ fromList
   [
     ("x", "x" := Bin Sub 5 2)
   , ("main", "main" := Bin Mul "x" 2)
@@ -63,7 +83,7 @@ y = x * 2
 main = x + 1 - y
 -}
 p6 :: Prog
-p6 = Prog "p6" $ M.fromList
+p6 = Prog "p6" $ fromList
   [
     ("x", "x" := 5)
   , ("y", "y" := Bin Mul "x" 2)
@@ -75,10 +95,10 @@ f x = 2 - x
 main = f 3 - 2 + f 1
 -}
 p7 :: Prog
-p7 = Prog "p7" $ M.fromList
+p7 = Prog "p7" $ fromList
   [
-    ("f", Fun "f" (singleton "x") (Bin Sub 2 "x"))
-  , ("main", "main" := Bin Add (Bin Sub (Exe "f" $ singleton 3) 2) (Exe "f" $ singleton 1))
+    ("f", Fun "f" ["x"] (Bin Sub 2 "x"))
+  , ("main", "main" := Bin Add (Bin Sub (Exe "f" [3]) 2) (Exe "f" [1]))
   ]
 
 {- -5
@@ -87,11 +107,11 @@ g y = y * 4
 main = f 3 4 - g 2
 -}
 p8 :: Prog
-p8 = Prog "p8" $ M.fromList
+p8 = Prog "p8" $ fromList
   [
-    ("f", Fun "f" (L.fromList ["x", "y"]) (Bin Add (Bin Sub 2 "x") "y"))
-  , ("g", Fun "g" (singleton "x") (Bin Mul "x" 4))
-  , ("main", "main" := Bin Sub (Exe "f" $ L.fromList [3, 4]) (Exe "g" $ singleton 2))
+    ("f", Fun "f" ["x", "y"] (Bin Add (Bin Sub 2 "x") "y"))
+  , ("g", Fun "g" ["x"] (Bin Mul "x" 4))
+  , ("main", "main" := Bin Sub (Exe "f" [3, 4]) (Exe "g" [2]))
   ]
 
 {- -3
@@ -100,11 +120,11 @@ f x = y * 2 - x
 main = f 3 - 2 * y
 -}
 p9 :: Prog
-p9 = Prog "p9" $ M.fromList
+p9 = Prog "p9" $ fromList
   [
     ("y", "y" := 5)
-  , ("f", Fun "f" (singleton "x") (Bin Sub (Bin Mul "y" 2) "x"))
-  , ("main", "main" := Bin Sub (Exe "f" $ singleton 3) (Bin Mul 2 "y"))
+  , ("f", Fun "f" ["x"] (Bin Sub (Bin Mul "y" 2) "x"))
+  , ("main", "main" := Bin Sub (Exe "f" [3]) (Bin Mul 2 "y"))
   ]
 
 {- -2.72...
@@ -120,20 +140,20 @@ main = f 3 - 2 * y + z / g z 7
          -2.72...
 -}
 p10 :: Prog
-p10 = Prog "p10" $ M.fromList
+p10 = Prog "p10" $ fromList
   [
     ("y", "y" := 5)
   , ("z", "z" := 3)
-  , ("f", Fun "f" (singleton "x") (Bin Sub (Bin Mul "y" 2) "x"))
-  , ("g", Fun "g" (L.fromList ["y", "u"]) (Bin Add (Bin Add "z" (Bin Div "y" 3)) "u"))
-  , ("main", "main" := Bin Add (Bin Sub (Exe "f" $ singleton 3) (Bin Mul 2 "y")) (Bin Div 3 (Exe "g" $ L.fromList ["z", 7])))
+  , ("f", Fun "f" ["x"] (Bin Sub (Bin Mul "y" 2) "x"))
+  , ("g", Fun "g" ["y", "u"] (Bin Add (Bin Add "z" (Bin Div "y" 3)) "u"))
+  , ("main", "main" := Bin Add (Bin Sub (Exe "f" [3]) (Bin Mul 2 "y")) (Bin Div 3 (Exe "g" ["z", 7])))
   ]
 
 {- _|_
 main = x * 2
 -}
 p11 :: Prog
-p11 = Prog "p11" $ M.fromList
+p11 = Prog "p11" $ fromList
   [
     ("main", "main" := Bin Mul "x" 2)
   ]
@@ -144,7 +164,7 @@ y = x
 main = x * 2
 -}
 p12 :: Prog
-p12 = Prog "p12" $ M.fromList
+p12 = Prog "p12" $ fromList
   [
     ("x", "x" := "y")
   , ("y", "y" := "x")
@@ -158,12 +178,12 @@ f x = y * 2 - x
 main = f z - 2 * y
 -}
 p13 :: Prog
-p13 = Prog "p13" $ M.fromList
+p13 = Prog "p13" $ fromList
   [
     ("z", "z" := 5)
   , ("y", "y" := 5)
-  , ("f", Fun "f" (singleton "x") (Bin Sub (Bin Mul "y" 2) "x"))
-  , ("main", "main" := Bin Sub (Exe "f" $ singleton "z") (Bin Mul 2 "y"))
+  , ("f", Fun "f" ["x"] (Bin Sub (Bin Mul "y" 2) "x"))
+  , ("main", "main" := Bin Sub (Exe "f" ["z"]) (Bin Mul 2 "y"))
   ]
 
 {- -2
@@ -182,3 +202,24 @@ main = a - 2 + b * f 3 / g a (b * 2)
 --   , ("g", Fun "g" (L.fromList ["b", "c"]) (Bin Add (Bin Add "a" "b") "c"))
 --   , ("main", "main" := Bin Add (Bin Sub "a" 2) (Bin Div (Bin Mul "b" (Exe "f" $ singleton 3)) (Exe "g" (L.fromList ["a", Bin Mul "b" 2]))))
 --   ]
+
+{- 3
+main = 3
+-}
+p15 :: Prog
+p15 = Prog "p15" $ fromList
+  [
+    ("main", "main" := 3)
+  ]
+
+s15 :: Spool Label
+s15 = Spool "p15"
+  [
+    (
+      "main"
+    , [Loa $ Con 3.0]
+    )
+  ]
+
+l15 :: Spool Line
+l15 = Spool "p15" undefined
