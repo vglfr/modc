@@ -5,7 +5,8 @@ module Modc.Compiler where
 import Data.List (intercalate)
 import Numeric (showHex)
 
--- import Data.HashMap.Strict (toList)
+-- import Data.HashMap.Strict as M (HashMap, insert, lookup, toList, size)
+import Data.HashMap.Strict as M (HashMap)
 import Data.Hashable (hash)
 import System.Directory (createDirectoryIfMissing)
 import System.Process (readProcess)
@@ -14,38 +15,39 @@ import System.Process (readProcess)
 --   (
 --     Op (Add, Div, Mul, Sub)
 --   )
+
 import Modc.VM
   (
     -- Ins (Loa, Sav, Two)
     Label
   -- , Name
-  , Spool (Spool, content, name)
-  -- , Val (Ref)
+  , Spool (Spool)
+  -- , Ins (Two)
+  -- , Val (Con)
   )
 
 type Line = String
+type Consts = HashMap Double Int
 
 run :: Spool Line -> IO ()
-run s = do
+run (Spool n ls) = do
   createDirectoryIfMissing True hDir
-  putStrLn . unlines $ content s
-  writeFile (hDir <> name s <> ".s") . unlines $ content s
-  readProcess "nasm" ["-g", "-f", "elf64", hDir <> name s <> ".s", "-o", hDir <> name s <> ".o"] mempty >>= putStrLn
-  readProcess "gcc" ["-z", "noexecstack", "-o", hDir <> "a.out", hDir <> name s <> ".o"] mempty >>= putStrLn
+  putStrLn . unlines $ ls
+  writeFile (hDir <> n <> ".s") . unlines $ ls
+  readProcess "nasm" ["-g", "-f", "elf64", hDir <> n <> ".s", "-o", hDir <> n <> ".o"] mempty >>= putStrLn
+  readProcess "gcc" ["-z", "noexecstack", "-o", hDir <> "a.out", hDir <> n <> ".o"] mempty >>= putStrLn
   readProcess (hDir <> "a.out") mempty mempty >>= putStrLn
  where
-  hDir = "/tmp/modc/" <> name s <> "-" <> showHex (abs . hash $ content s) mempty <> "/"
+  hDir = "/tmp/modc/" <> n <> "-" <> showHex (abs . hash $ ls) mempty <> "/"
 
 compile :: Spool Label -> Spool Line
-compile (Spool n ls) = Spool n $ intercalate [""]
-  (
+compile (Spool n ls) = Spool n . intercalate [""] $
      global
   <> extern
   <> data' ls
-  <> bss ls
-  <> concatMap text ls
-  <> printf64
-  )
+  -- <> bss ls
+  -- <> concatMap text ls
+  -- <> printf64
 
 global :: [[Line]]
 global = pure $ pure "global main"
@@ -54,26 +56,31 @@ extern :: [[Line]]
 extern = pure $ pure "extern printf"
 
 data' :: [Label] -> [[Line]]
-data' _ = pure
-  [
-    "section .data"
-  ]
-
--- data' :: Data -> [Line]
--- data' cs = fmap (uncurry fconst) (toList cs)
+data' = undefined
+-- data' ls = pure $
+--   [
+--     "section .data"
+--   ] <> fmap fconst (consts ls)
 --  where
---   fconst k v = "C" <> show v <> ":         dq " <> show k
+--   fconst (k,v) = "C" <> show v <> ":         dq " <> show k
+--   consts = toList . foldr (\l a -> foldr collect a $ snd l) mempty
+--   collect i m = case i of
+--                   Two _ (Con v1) (Con v2) -> upsert v2 (upsert v1 m)
+--                   _ -> m
+--   upsert k m = maybe (insert k (size m) m) (const m) $ M.lookup k m
+
+constify :: [Label] -> ([Label], Consts)
+constify = undefined
 
 bss :: [Label] -> [[Line]]
-bss _ = pure
-  [
-    "section .bss"
-  ]
-
--- bss :: BSS -> [Line]
--- bss vs = "RES:        resq 1" : fmap fvar vs
+bss = undefined
+-- bss ls = pure
+--   [
+--     "section .bss"
+--   ] <> it <> (fmap fvar . filter (/= "main") . fmap fst $ ls) -- drop Fun
 --  where
---   fvar v = v <> ":          resq 1"
+--   it = pure ["RES:        resq 1"]
+--   fvar v = pure $ v <> ":          resq 1"
 
 text :: Label -> [[Line]]
 text _ = pure

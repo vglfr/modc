@@ -26,37 +26,50 @@ import Modc.AST
 -- type BSS  = [String]
 -- type Tape = (Text, Data, BSS, Name)
 
-data Spool a = Spool { name :: Name, content :: [a] } deriving Show
+data Spool a = Spool Name [a]
+
+data Label
+  = Ass Name [Ins]
+  | Pro Name [Ins]
 
 type Name = String
-type Label = (Name,[Ins])
 
 data Ins
   = Two Op Val Val
+  | Cal Id [Val]
   | Loa Val
-  | Sav String
-  -- | Call String
 
 data Val
-  = Con Double
+  = Arg Int
+  | Con Double
   | Ref Int
-  | Bss String
+  | Sym Id
+  -- | Map Int
+
+instance Show a => Show (Spool a) where
+  show (Spool n as) = intercalate "\n\n" $ n : fmap show as
+
+instance Show Label where
+  show (Ass n is) = intercalate "\n" $ n <> ":" : fmap (offset 2 . show) is
+  show (Pro n is) = intercalate "\n" $ n <> "!" : fmap (offset 2 . show) is
 
 instance Show Ins where
   show (Two o a b) = show a <> show o <> show b
+  show (Cal i is) = unwords $ i : fmap show is
   show (Loa v) = show v
-  show (Sav v) = v
 
 instance Show Val where
+  show (Arg x) = "a" <> show x
   show (Con x) = show x
   show (Ref x) = "[" <> show x <> "]"
-  show (Bss x) = x
+  show (Sym x) = x
+  -- show (Map x) = "C" <> show x
 
 spool :: Prog -> Spool Label
 spool (Prog i cs) = let is = unwind . graph $ cs
                      in Spool i (fmap f is)
  where
-  f i' = (i',spool' . expr . fromJust $ cs !? i')
+  f i' = Ass i' (spool' . expr . fromJust $ cs !? i')
 
 expr :: Comb -> Exp
 expr (_ := e) = e
@@ -74,8 +87,12 @@ spool' = fmap acc . flat
             --               in (Two o v1 v2 : is, cs2, vs, mempty)
             -- Bin _ _ _ -> undefined
             -- Exe _ _ -> undefined
-            Val v -> Loa $ Con v
+            Val _ -> undefined
+            -- Val v -> Loa $ Con v
             -- Var i -> Loa $ Bss i
+
+flat' :: String -> Prog -> [Exp]
+flat' n (Prog _ cs) = flat . expr . fromJust $ cs !? n
 
 flat :: Exp -> [Exp]
 flat e = case e of
@@ -167,3 +184,8 @@ unwind g = case cycles of
   !main = case lookup "main" . fmap swap . labNodes $ g of
             Just x  -> x
             Nothing -> error "program must have main"
+
+-- ## --
+
+offset :: Int -> String -> String
+offset n s = replicate n ' ' <> s
