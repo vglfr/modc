@@ -1,15 +1,14 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
--- {-# OPTIONS_GHC -Wno-missing-methods #-}
 
 module Modc.VM where
 
+import Data.Char (isDigit)
 import Data.List (elemIndex, nub, intercalate)
 import Data.Maybe (fromJust)
 import Data.Tuple (swap)
 
 import Data.Graph.Inductive (Adj, Context, Gr, buildGr, postorder, dff, labNodes, lab)
 import Data.Graph.Inductive.Query.DFS (scc)
--- import Data.HashMap.Strict ((!?), HashMap, insert, lookup, member, size, toList)
 import Data.HashMap.Strict ((!?), size, toList)
 
 import Modc.AST
@@ -21,17 +20,14 @@ import Modc.AST
   , Op
   , Prog (Prog)
   )
-import Data.Char (isDigit)
+import Modc.Util (offset)
 
--- type Data = HashMap Double Int
--- type BSS  = [String]
--- type Tape = (Text, Data, BSS, Name)
-
-data Spool a = Spool Name [a]
+data Spool a = Spool Name [a] deriving Eq
 
 data Label
   = Ass Name [Ins]
   | Pro Name [Ins]
+  deriving Eq
 
 type Name = String
 
@@ -39,12 +35,14 @@ data Ins
   = Two Op Val Val
   | Cal Id [Val]
   | Loa Val
+  deriving Eq
 
 data Val
   = Arg Int
   | Con Double
   | Ref Int
   | Sym Id
+  deriving Eq
   -- | Map Int
 
 instance Show a => Show (Spool a) where
@@ -76,41 +74,30 @@ spool (Prog i cs) = let cs' = rebind cs
                    Just (Fun _ _ e) -> Pro i' (spool' e)
 
 spool' :: Exp -> [Ins]
-spool' = fmap translate . flat
+spool' es = fmap translate es'
  where
   translate e = case e of
-                  Bin o a b -> Two o (val a) (val b)
-                  Exe i as -> Cal i (fmap val as)
+                  Bin o a b -> Two o (val e a) (val e b)
+                  Exe i as -> Cal i (fmap (val e) as)
                   Val v -> Loa $ Con v
                   Var i -> Loa $ Sym i
-  val :: Exp -> Val
-  val e = case e of
-            Val v -> Con v
-            Var i -> if isDigit (head i) then Arg (read i) else Sym i
-            _ -> Ref 0 -- (Ref $ index e es - index e' es, cs')
-
-flat :: Exp -> [Exp]
-flat e = case e of
-           Bin _ a b -> filter (not . unary) (flat a <> flat b <> [e])
-           Exe _ as -> filter (not . unary) (concatMap flat as <> [e])
-           Val _ -> [e]
-           Var _ -> [e]
- where
-  unary e' = case e' of
-               Val _ -> True
-               Var _ -> True
-               _ -> False
+  val e e' = case e' of
+               Val v -> Con v
+               Var i -> if isDigit (head i) then Arg (read i) else Sym i
+               _ -> Ref $ index e' - index e
+  index e = fromJust $ elemIndex e es'
+  es' = flat es
 
 rebind :: Combs -> Combs
-rebind = fmap rebind'
+rebind = fmap bind
  where
-  rebind' c = case c of
-                Fun i ps e -> let ps' = fmap show [0..length ps - 1]
-                               in Fun i ps' (rename (zip ps ps') e)
-                _ -> c
+  bind c = case c of
+             Fun i ps e -> let ps' = fmap show [0..length ps - 1]
+                            in Fun i ps' (rename (zip ps ps') e)
+             _ -> c
   rename m e = case e of
                  Bin o a b -> Bin o (rename m a) (rename m b)
-                 Exe i as -> Exe i $ fmap (rename m) as
+                 Exe i as -> Exe i $ fmap (rename m) as -- length as == length ps
                  Var v -> maybe e Var $ lookup v m
                  Val _ -> e
 
@@ -142,23 +129,14 @@ unwind g = case cycles of
             Just x  -> x
             Nothing -> error "program must have main"
 
--- ## --
-
-offset :: Int -> String -> String
-offset n s = replicate n ' ' <> s
-
--- ungr :: Prog -> [Id]
--- ungr (Prog _ cs) = unwind . graph $ cs
-
--- rebind'' :: Prog -> Combs
--- rebind'' (Prog _ cs) = rebind cs
-
--- graph' :: Prog -> Gr String String
--- graph' (Prog _ cs) = graph cs
-
--- flat' :: String -> Prog -> [Exp]
--- flat' n (Prog _ cs) = flat . expr . fromJust $ cs !? n
-
--- expr :: Comb -> Exp
--- expr (_ := e) = e
--- expr (Fun _ _ e) = e
+flat :: Exp -> [Exp]
+flat e = case e of
+           Bin _ a b -> filter (not . unary) (flat a <> flat b <> [e])
+           Exe _ as -> filter (not . unary) (concatMap flat as <> [e])
+           Val _ -> [e]
+           Var _ -> [e]
+ where
+  unary e' = case e' of
+               Val _ -> True
+               Var _ -> True
+               _ -> False

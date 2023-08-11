@@ -1,0 +1,3 @@
+test-options: "--color"
+test-show-details: always
+tests: True

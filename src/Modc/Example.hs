@@ -69,17 +69,13 @@ p4 = Prog "p4" $ fromList
 s4 :: Spool Label
 s4 = Spool "p4"
   [
-    Ass "x"
-      [
-        Loa (Con 5)
-      ]
-  , Ass "main"
+    Ass "main"
       [
         Two Add (Con 3) (Con 2)
       , Two Sub (Con 3) (Con 2)
       , Two Mul (Ref (-1)) (Con 4)
       , Two Add (Ref (-1)) (Con 6)
-      , Two Div (Ref (-2)) (Ref (-1))
+      , Two Div (Ref (-4)) (Ref (-1))
       ]
   ]
 
@@ -225,7 +221,7 @@ s9 = Spool "p9"
       ]
   , Ass "main"
       [
-        Cal "f" [Con 3, Con 4]
+        Cal "f" [Con 3]
       , Two Mul (Con 2) (Sym "y")
       , Two Sub (Ref (-2)) (Ref (-1))
       ]
@@ -260,20 +256,20 @@ s10 = Spool "p10"
       [
         Loa (Con 5)
       ]
-  , Ass "z"
-      [
-        Loa (Con 3)
-      ]
   , Pro "f"
       [
         Two Mul (Sym "y") (Con 2)
       , Two Sub (Ref (-1)) (Arg 0)
       ]
+  , Ass "z"
+      [
+        Loa (Con 3)
+      ]
   , Pro "g"
       [
         Two Div (Arg 0) (Con 3)
       , Two Add (Sym "z") (Ref (-1))
-      , Two Sub (Ref (-1)) (Arg 1)
+      , Two Add (Ref (-1)) (Arg 1)
       ]
   , Ass "main"
       [
@@ -282,7 +278,7 @@ s10 = Spool "p10"
       , Two Sub (Ref (-2)) (Ref (-1))
       , Cal "g" [Sym "z", Con 7]
       , Two Div (Sym "z") (Ref (-1))
-      , Two Add (Ref (-2)) (Ref (-1))
+      , Two Add (Ref (-3)) (Ref (-1))
       ]
   ]
 
@@ -317,7 +313,7 @@ main = f z - 2 * y
 p13 :: Prog
 p13 = Prog "p13" $ fromList
   [
-    ("z", "z" := 5)
+    ("z", "z" := 3)
   , ("y", "y" := 5)
   , ("f", Fun "f" ["x"] (Bin Sub (Bin Mul "y" 2) "x"))
   , ("main", "main" := Bin Sub (Exe "f" ["z"]) (Bin Mul 2 "y"))
@@ -330,14 +326,14 @@ s13 = Spool "p13"
       [
         Loa (Con 5)
       ]
-  , Ass "z"
-      [
-        Loa (Con 3)
-      ]
   , Pro "f"
       [
         Two Mul (Sym "y") (Con 2)
       , Two Sub (Ref (-1)) (Arg 0)
+      ]
+  , Ass "z"
+      [
+        Loa (Con 3)
       ]
   , Ass "main"
       [
@@ -371,14 +367,14 @@ s14 = Spool "p14"
       [
         Two Sub (Con 2) (Con 3)
       ]
+  , Pro "f"
+      [
+        Two Mul (Sym "a") (Arg 0)
+      ]
   , Ass "b"
       [
         Two Mul (Con 5) (Sym "a")
       , Two Sub (Ref (-1)) (Sym "a")
-      ]
-  , Pro "f"
-      [
-        Two Mul (Sym "a") (Arg 0)
       ]
   , Pro "g"
       [
@@ -393,8 +389,8 @@ s14 = Spool "p14"
       , Two Mul (Sym "b") (Ref (-1))
       , Two Mul (Sym "b") (Con 2)
       , Cal "g" [Sym "a", Ref (-1)]
-      , Two Div (Ref (-2)) (Ref (-1))
-      , Two Add (Ref (-2)) (Ref (-1))
+      , Two Div (Ref (-3)) (Ref (-1))
+      , Two Add (Ref (-6)) (Ref (-1))
       ]
   ]
 

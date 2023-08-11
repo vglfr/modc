@@ -33,7 +33,7 @@ data Op
   deriving Eq
 
 instance Show Prog where
-  show (Prog _ cs) = intercalate "\n\n" . fmap show . sortOn name . elems $ cs
+  show (Prog _ cs) = intercalate "\n\n" . fmap show . sortOn name . elems $ cs -- graph
    where
     name c = case c of
                Fun i _ _ -> i
