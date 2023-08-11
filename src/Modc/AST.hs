@@ -3,7 +3,7 @@
 
 module Modc.AST where
 
-import Data.List (intercalate, intersperse)
+import Data.List (intercalate, intersperse, sortOn)
 import Data.String (IsString, fromString)
 import GHC.Show (showSpace)
 
@@ -33,7 +33,12 @@ data Op
   deriving Eq
 
 instance Show Prog where
-  show (Prog _ cs) = intercalate "\n\n" . fmap show . elems $ cs -- sort cs in graph order, ass then fun
+  show (Prog _ cs) = intercalate "\n\n" . fmap show . sortOn name . elems $ cs
+   where
+    name c = case c of
+               Fun i _ _ -> i
+               "main" := _ -> "~"
+               i := _ -> " " <> i
 
 instance Show Comb where
   show (i := e) = i <> " = " <> show e

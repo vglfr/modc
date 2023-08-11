@@ -21,6 +21,7 @@ import Modc.AST
   , Op
   , Prog (Prog)
   )
+import Data.Char (isDigit)
 
 -- type Data = HashMap Double Int
 -- type BSS  = [String]
@@ -59,40 +60,34 @@ instance Show Ins where
   show (Loa v) = show v
 
 instance Show Val where
-  show (Arg x) = "a" <> show x
+  show (Arg x) = "'" <> show x
   show (Con x) = show x
   show (Ref x) = "[" <> show x <> "]"
   show (Sym x) = x
   -- show (Map x) = "C" <> show x
 
 spool :: Prog -> Spool Label
-spool (Prog i cs) = let is = unwind . graph $ cs
-                     in Spool i (fmap f is)
+spool (Prog i cs) = let cs' = rebind cs
+                        is = unwind . graph $ cs'
+                     in Spool i (fmap (label cs') is)
  where
-  f i' = Ass i' (spool' . expr . fromJust $ cs !? i')
-
-expr :: Comb -> Exp
-expr (_ := e) = e
-expr (Fun _ _ e) = e
-
-main' :: Prog -> Exp
-main' (Prog _ cs) = expr . fromJust $ cs !? "main"
+  label cs' i' = case cs' !? i' of
+                   Just (_ := e) -> Ass i' (spool' e)
+                   Just (Fun _ _ e) -> Pro i' (spool' e)
 
 spool' :: Exp -> [Ins]
-spool' = fmap acc . flat
+spool' = fmap translate . flat
  where
-  acc e = case e of
-            -- Bin o a b -> let (v1, cs1) = val a cs' es e
-            --                  (v2, cs2) = val b cs1 es e
-            --               in (Two o v1 v2 : is, cs2, vs, mempty)
-            -- Bin _ _ _ -> undefined
-            -- Exe _ _ -> undefined
-            Val _ -> undefined
-            -- Val v -> Loa $ Con v
-            -- Var i -> Loa $ Bss i
-
-flat' :: String -> Prog -> [Exp]
-flat' n (Prog _ cs) = flat . expr . fromJust $ cs !? n
+  translate e = case e of
+                  Bin o a b -> Two o (val a) (val b)
+                  Exe i as -> Cal i (fmap val as)
+                  Val v -> Loa $ Con v
+                  Var i -> Loa $ Sym i
+  val :: Exp -> Val
+  val e = case e of
+            Val v -> Con v
+            Var i -> if isDigit (head i) then Arg (read i) else Sym i
+            _ -> Ref 0 -- (Ref $ index e es - index e' es, cs')
 
 flat :: Exp -> [Exp]
 flat e = case e of
@@ -106,56 +101,18 @@ flat e = case e of
                Var _ -> True
                _ -> False
 
-{-
-class Spool a where
-  spool' :: a -> Label
-
-instance Spool Comb where
-  spool' (i := e) cs = let (is,cs',_,_) = spool' e cs
-                        in if i == "main"
-                           then (is,cs',mempty,mempty)
-                           else (is <> [Sav i], cs', [i], mempty)
-
-instance Spool Exp where
-  spool' t cs = let es = flat t
-                 in foldr (acc es) (mempty,cs,mempty,mempty) es
-   where
-    flat e = case e of
-               Bin _ a b -> flat' a <> flat' b <> [e]
-               Val _ -> [e]
-               Var _ -> [e]
-               _ -> mempty
-    flat' e = case e of
-                Bin {} -> flat e
-                _ -> mempty
-    acc es e (is,cs',vs,_) = case e of
-                               Bin o a b -> let (v1, cs1) = val a cs' es e
-                                                (v2, cs2) = val b cs1 es e
-                                             in (Two o v1 v2 : is, cs2, vs, mempty)
-                               Val v -> let (c, cs1) = lookupd v cs'
-                                         in (Loa (Con c) : is, cs1, vs, mempty)
-                               Var i -> (Loa (Tem i) : is, cs', vs, mempty)
-                               _ -> undefined
-    val e cs' es e' = case e of
-                        Val v -> let (c, cs1) = lookupd v cs'
-                                  in (Con c, cs1)
-                        Var i -> (Tem i, cs')
-                        _ -> (Ref $ index e es - index e' es, cs')
-    index e es = fromJust $ elemIndex e es
-    lookupd k m = case Data.HashMap.Strict.lookup k m of
-                    Just v  -> (v, m)
-                    Nothing -> let s = size m in (s, insert k s m)
-
--}
-
--- spool p@(Prog i c) = let cs' = flatten . graph $ p
---                       in foldr acc mempty cs'
- -- where
-  -- acc s (is,cs,vs,_) = let (is',cs',vs',_) = flip spool' cs . fromJust $ c !? s
-  --                       in (is' <> is,cs' <> cs,vs' <> vs,i)
-
--- graph' :: Prog -> Gr String String
--- graph' (Prog _ cs) = graph cs
+rebind :: Combs -> Combs
+rebind = fmap rebind'
+ where
+  rebind' c = case c of
+                Fun i ps e -> let ps' = fmap show [0..length ps - 1]
+                               in Fun i ps' (rename (zip ps ps') e)
+                _ -> c
+  rename m e = case e of
+                 Bin o a b -> Bin o (rename m a) (rename m b)
+                 Exe i as -> Exe i $ fmap (rename m) as
+                 Var v -> maybe e Var $ lookup v m
+                 Val _ -> e
 
 graph :: Combs -> Gr String String
 graph cs = let (ks,vs) = unzip . toList $ cs
@@ -164,7 +121,7 @@ graph cs = let (ks,vs) = unzip . toList $ cs
   acc :: [Id] -> (Int,Comb) -> [Context String String] -> [Context String String]
   acc is (n,c) a = case c of
                      i := e      -> ([],n,i,vars e is) : a
-                     Fun i is' e -> ([],n,i,vars e (is <> is')) : a -- bound v free name clash
+                     Fun i is' e -> ([],n,i,vars e (is <> is')) : a
   vars :: Exp -> [Id] -> Adj String
   vars e is = case e of
                 Bin _ e1 e2  -> nub $ vars e1 is <> vars e2 is
@@ -177,7 +134,7 @@ graph cs = let (ks,vs) = unzip . toList $ cs
 
 unwind :: Gr String String -> [Id]
 unwind g = case cycles of
-             [] -> fmap (fromJust . lab g) . postorder . head . dff [main] $ g -- ass first
+             [] -> fmap (fromJust . lab g) . postorder . head . dff [main] $ g
              cs -> error $ "cyclic references: " <> unwords (fmap (intercalate "<>") cs)
  where
   cycles = fmap (fmap (fromJust . lab g)) . filter ((>1) . length) . scc $ g
@@ -189,3 +146,19 @@ unwind g = case cycles of
 
 offset :: Int -> String -> String
 offset n s = replicate n ' ' <> s
+
+-- ungr :: Prog -> [Id]
+-- ungr (Prog _ cs) = unwind . graph $ cs
+
+-- rebind'' :: Prog -> Combs
+-- rebind'' (Prog _ cs) = rebind cs
+
+-- graph' :: Prog -> Gr String String
+-- graph' (Prog _ cs) = graph cs
+
+-- flat' :: String -> Prog -> [Exp]
+-- flat' n (Prog _ cs) = flat . expr . fromJust $ cs !? n
+
+-- expr :: Comb -> Exp
+-- expr (_ := e) = e
+-- expr (Fun _ _ e) = e
