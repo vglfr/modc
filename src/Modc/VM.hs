@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
-
 module Modc.VM where
 
 import Data.Char (isDigit)
@@ -72,6 +70,7 @@ spool (Prog i cs) = let cs' = rebind cs
   label cs' i' = case cs' !? i' of
                    Just (_ := e) -> Ass i' (spool' e)
                    Just (Fun _ _ e) -> Pro i' (spool' e)
+                   Nothing -> error "unreachable"
 
 spool' :: Exp -> [Ins]
 spool' es = fmap translate es'

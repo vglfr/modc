@@ -11,10 +11,10 @@ import Modc.AST
   , Op (Add, Div, Mul, Sub)
   , Prog (Prog)
   )
--- import Modc.Compiler
---   (
---     Line
---   )
+import Modc.Compiler
+  (
+    Section (Global, Extern, Section)
+  )
 import Modc.VM
   (
     Ins (Two, Cal, Loa)
@@ -52,6 +52,51 @@ s3 = Spool "p3"
     Ass "main"
       [
         Two Mul (Con 3) (Con 2)
+      ]
+  ]
+
+l3 :: Spool Section
+l3 = Spool "p3"
+  [
+    Global "main"
+  , Extern "printf"
+  , Section ".data"
+      [
+        "FST:        db \"%.2f\", 10, 0"
+      , "C0:         dq 3.0"
+      , "C1:         dq 2.0"
+      ]
+  , Section ".bss"
+      [
+        "it:         resq 1"
+      ]
+  , Section ".text"
+      [
+        "printf_f64:"
+      , "        push        rbp"
+      , "        mov         rbp, rsp"
+      , ""
+      , "        mov         rdi, FST"
+      , "        mov         rax, 1"
+      , "        movsd       xmm0, qword [rbp+16]"
+      , "        call        printf"
+      , ""
+      , "        pop         rbp"
+      , "        xor         rax, rax"
+      , "        ret"
+      , ""
+      , "main:"
+      , "        ; [it] <- [C0] * [C1]"
+      , "        fld         qword [C0]"
+      , "        fmul        qword [C1]"
+      , "        fstp        qword [it]"
+      , ""
+      , "        ; printf_f64 [it]"
+      , "        push        qword [it]"
+      , "        call        printf_f64"
+      , "        add         rsp, 8"
+      , ""
+      , "        ret"
       ]
   ]
 

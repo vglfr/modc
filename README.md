@@ -1,14 +1,17 @@
 ## modc - Language Which Compiles ASM in Modules
 
 + migrate from numc
-- spool Prog's
++ spool Prog's
 
 - compile Prog's
+
+- conditionals (unconditional)
 - comparisons
-- conditionals
 - boolean types
+- conditionals (conditional)
+- first order functions
 - fX, iX, uX types
-- template haskell
-- lazy evaluation
-- optimizer (integrate lambdac)
-- design inquiry (what market needs)
+
+Conventions:
+- arguments are |'0 '1 ..|
+- constants are |?0 ?1 ..|
