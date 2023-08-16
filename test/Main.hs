@@ -2,7 +2,12 @@ module Main where
 
 import Test.Hspec (hspec)
 
+import Compiler (testConstify, testVarify)
 import VM (testSpool)
 
 main :: IO ()
-main = hspec testSpool
+main = do
+  hspec $ do
+    testConstify
+    testVarify
+  hspec testSpool

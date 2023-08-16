@@ -2,6 +2,7 @@
 
 module Modc.Compiler where
 
+import Data.Foldable (foldl')
 import Data.List (intercalate)
 import Numeric (showHex)
 
@@ -50,60 +51,55 @@ run s@(Spool n ls) = do
   hDir = "/tmp/modc/" <> n <> "-" <> showHex (abs . hash $ ls) mempty <> "/"
 
 compile :: Spool Label -> Spool Section
-compile (Spool n ls) = let (ls',cs) = constify ls
+compile (Spool n ls) = let (_ls',cs) = constify ls
                            vs = varify ls
-                           ls'' = mainify ls'
+                           -- ls'' = mainify ls'
                         in Spool n
                              [
                                global
                              , extern
                              , data' cs
                              , bss vs
-                             , text ls''
+                             -- , text ls''
                              ]
 
 -- constify' :: Spool Label -> ([Label], Consts)
 -- constify' (Spool _ ls) = constify ls
 
 constify :: [Label] -> ([Label], Consts)
-constify = foldr clabel mempty
+constify = foldl' clabel mempty
  where
-  -- clabel :: Label -> ([Label], Consts) -> ([Label], Consts)
-  clabel l (ls,cs) = case l of
-                       Ass n is -> let (is',cs') = foldr cins (mempty, cs) is
-                                    in (Ass n is' : ls, cs')
-                       Pro n is -> let (is',cs') = foldr cins (mempty, cs) is
-                                    in (Pro n is' : ls, cs')
-  -- cins :: Ins -> ([Ins], Consts) -> ([Ins], Consts)
-  cins i (is,cs) = case i of
+  -- clabel :: ([Label], Consts) -> Label -> ([Label], Consts)
+  clabel (ls,cs) l = case l of
+                       Ass n is -> let (is',cs') = foldl' cins (mempty, cs) is
+                                    in (ls <> [Ass n is'], cs')
+                       Pro n is -> let (is',cs') = foldl' cins (mempty, cs) is
+                                    in (ls <> [Pro n is'], cs')
+  -- cins :: ([Ins], Consts) -> Ins -> ([Ins], Consts)
+  cins (is,cs) i = case i of
                      Two n v1 v2 -> let (v1',cs' ) = cval v1 cs
                                         (v2',cs'') = cval v2 cs'
-                                     in (Two n v1' v2' : is, cs'')
-                     Cal n as -> let (as',cs') = foldr cvals (mempty, cs) as
-                                  in (Cal n as' : is, cs')
-                     -- Loa v -> (: is) . Loa <$> cval v cs
+                                     in (is <> [Two n v1' v2'], cs'')
+                     Cal n as -> let (as',cs') = foldl' cvals (mempty, cs) as
+                                  in (is <> [Cal n (reverse as')], cs')
                      Loa v -> let (v',cs') = cval v cs
-                               in (Loa v' : is, cs')
-  -- cvals :: Val -> ([Val], Consts) -> ([Val], Consts)
-  cvals v (vs,cs) = let (v',cs') = cval v cs
+                               in (is <> [Loa v'], cs')
+  -- cvals :: ([Val], Consts) -> Val -> ([Val], Consts)
+  cvals (vs,cs) v = let (v',cs') = cval v cs
                      in (v' : vs, cs')
   -- cval :: Val -> Consts -> (Val, Consts)
   cval v m = case v of
-               -- Con c -> Sym . ('?' :) . show <$> upsert c m
                Con c -> let (n,m') = upsert c m
                          in (Sym $ '?' : show n, m')
                _ -> (v,m)
   -- upsert :: Double -> Consts -> (Int, Consts)
   upsert k m = maybe (size m, insert k (size m) m) (,m) $ M.lookup k m
 
-  -- ins (Ass _ is) = is
-  -- ins (Pro _ is) = is
-
 varify :: [Label] -> [Name]
-varify = undefined
-  -- ] -- <> (fmap fvar . filter (/= "main") . fmap fst $ ls) -- drop Fun
---  where
---   fvar v = pure $ v <> ":          resq 1"
+varify = concatMap vlabel
+ where
+  vlabel (Ass n _) = if n == "main" then mempty else pure n
+  vlabel _ = mempty
 
 mainify :: [Label] -> [Label]
 mainify = undefined

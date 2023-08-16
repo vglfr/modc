@@ -427,7 +427,7 @@ s14 = Spool "p14"
       , Two Sub (Ref (-1)) (Arg 1)
       , Two Add (Ref (-1)) (Con 8)
       ]
-  , Ass "main" -- a - 2,f 3,b * f 3,b * 2,g a (b * 2),b * f 3 / g a (b * 2),a - 2 + b * f 3 / g a (b * 2)
+  , Ass "main"
       [
         Two Sub (Sym "a") (Con 2)
       , Cal "f" [Con 3]
