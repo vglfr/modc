@@ -6,19 +6,289 @@ import Modc.AST
   (
     Op (Add, Div, Mul, Sub)
   )
-import Modc.Compiler (constify, varify)
+import Modc.Compiler
+  (
+    ASM (Global, Extern, Section)
+  , compile, constify, mainify, printf64, varify
+  )
 import Modc.Example
   (
     s3, s4, s5, s6, s7, s8, s9, s10, s13, s14, s15
+  , s3', s4', s5', s6', s7', s8', s9', s10', s13', s14', s15'
   )
 import Modc.VM
   (
-    Label (Ass, Pro)
+    IR (Ass, Pro)
   , Ins (Cal, Loa, Two)
   , Spool (Spool)
   , Val (Arg, Ref, Sym)
   )
 import Data.HashMap.Lazy (fromList)
+
+testCompile :: Spec
+testCompile = describe "Modc.Compiler" $ do
+  it "compile s3" $ do
+    compile s3 `shouldBe` Spool "p3"
+      [
+        Global "main"
+      , Extern "printf"
+      , Section ".data"
+          [
+            "?F:         db \"%.2f\", 10, 0"
+          , "?0:         dq 3.0"
+          , "?1:         dq 2.0"
+          ]
+      , Section ".bss"
+          [
+            "?R:         resq 1"
+          ]
+      , Section ".text"
+          [
+            printf64
+      --     , "main:"
+      --     , "        ; [it] <- [C0] * [C1]"
+      --     , "        fld         qword [C0]"
+      --     , "        fmul        qword [C1]"
+      --     , "        fstp        qword [it]"
+      --     , ""
+      --     , "        ; printf_f64 [it]"
+      --     , "        push        qword [it]"
+      --     , "        call        printf_f64"
+      --     , "        add         rsp, 8"
+      --     , ""
+      --     , "        ret"
+          ]
+      ]
+
+  it "compile s4" $ do
+    compile s4 `shouldBe` Spool "p4"
+      [
+        Global "main"
+      , Extern "printf"
+      , Section ".data"
+          [
+            "?F:         db \"%.2f\", 10, 0"
+          , "?0:         dq 3.0"
+          , "?1:         dq 2.0"
+          , "?2:         dq 4.0"
+          , "?3:         dq 6.0"
+          ]
+      , Section ".bss"
+          [
+            "?R:         resq 1"
+          ]
+      , Section ".text"
+          [
+            printf64
+          ]
+      ]
+
+  it "compile s5" $ do
+    compile s5 `shouldBe` Spool "p5"
+      [
+        Global "main"
+      , Extern "printf"
+      , Section ".data"
+          [
+            "?F:         db \"%.2f\", 10, 0"
+          , "?0:         dq 5.0"
+          , "?1:         dq 2.0"
+          ]
+      , Section ".bss"
+          [
+            "?R:         resq 1"
+          , "x:          resq 1"
+          ]
+      , Section ".text"
+          [
+            printf64
+          ]
+      ]
+
+  it "compile s6" $ do
+    compile s6 `shouldBe` Spool "p6"
+      [
+        Global "main"
+      , Extern "printf"
+      , Section ".data"
+          [
+            "?F:         db \"%.2f\", 10, 0"
+          , "?0:         dq 5.0"
+          , "?1:         dq 2.0"
+          , "?2:         dq 1.0"
+          ]
+      , Section ".bss"
+          [
+            "?R:         resq 1"
+          , "x:          resq 1"
+          , "y:          resq 1"
+          ]
+      , Section ".text"
+          [
+            printf64
+          ]
+      ]
+
+  it "compile s7" $ do
+    compile s7 `shouldBe` Spool "p7"
+      [
+        Global "main"
+      , Extern "printf"
+      , Section ".data"
+          [
+            "?F:         db \"%.2f\", 10, 0"
+          , "?0:         dq 2.0"
+          , "?1:         dq 3.0"
+          , "?2:         dq 1.0"
+          ]
+      , Section ".bss"
+          [
+            "?R:         resq 1"
+          ]
+      , Section ".text"
+          [
+            printf64
+          ]
+      ]
+
+  it "compile s8" $ do
+    compile s8 `shouldBe` Spool "p8"
+      [
+        Global "main"
+      , Extern "printf"
+      , Section ".data"
+          [
+            "?F:         db \"%.2f\", 10, 0"
+          , "?0:         dq 2.0"
+          , "?1:         dq 4.0"
+          , "?2:         dq 3.0"
+          ]
+      , Section ".bss"
+          [
+            "?R:         resq 1"
+          ]
+      , Section ".text"
+          [
+            printf64
+          ]
+      ]
+
+  it "compile s9" $ do
+    compile s9 `shouldBe` Spool "p9"
+      [
+        Global "main"
+      , Extern "printf"
+      , Section ".data"
+          [
+            "?F:         db \"%.2f\", 10, 0"
+          , "?0:         dq 5.0"
+          , "?1:         dq 2.0"
+          , "?2:         dq 3.0"
+          ]
+      , Section ".bss"
+          [
+            "?R:         resq 1"
+          , "y:          resq 1"
+          ]
+      , Section ".text"
+          [
+            printf64
+          ]
+      ]
+
+  it "compile s10" $ do
+    compile s10 `shouldBe` Spool "p10"
+      [
+        Global "main"
+      , Extern "printf"
+      , Section ".data"
+          [
+            "?F:         db \"%.2f\", 10, 0"
+          , "?0:         dq 5.0"
+          , "?1:         dq 2.0"
+          , "?2:         dq 3.0"
+          , "?3:         dq 7.0"
+          ]
+      , Section ".bss"
+          [
+            "?R:         resq 1"
+          , "y:          resq 1"
+          , "z:          resq 1"
+          ]
+      , Section ".text"
+          [
+            printf64
+          ]
+      ]
+
+  it "compile s13" $ do
+    compile s13 `shouldBe` Spool "p13"
+      [
+        Global "main"
+      , Extern "printf"
+      , Section ".data"
+          [
+            "?F:         db \"%.2f\", 10, 0"
+          , "?0:         dq 5.0"
+          , "?1:         dq 2.0"
+          , "?2:         dq 3.0"
+          ]
+      , Section ".bss"
+          [
+            "?R:         resq 1"
+          , "y:          resq 1"
+          , "z:          resq 1"
+          ]
+      , Section ".text"
+          [
+            printf64
+          ]
+      ]
+
+  it "compile s14" $ do
+    compile s14 `shouldBe` Spool "p14"
+      [
+        Global "main"
+      , Extern "printf"
+      , Section ".data"
+          [
+            "?F:         db \"%.2f\", 10, 0"
+          , "?0:         dq 2.0"
+          , "?1:         dq 3.0"
+          , "?2:         dq 5.0"
+          , "?3:         dq 8.0"
+          ]
+      , Section ".bss"
+          [
+            "?R:         resq 1"
+          , "a:          resq 1"
+          , "b:          resq 1"
+          ]
+      , Section ".text"
+          [
+            printf64
+          ]
+      ]
+
+  it "compile s15" $ do
+    compile s15 `shouldBe` Spool "p15"
+      [
+        Global "main"
+      , Extern "printf"
+      , Section ".data"
+          [
+            "?F:         db \"%.2f\", 10, 0"
+          , "?0:         dq 3.0"
+          ]
+      , Section ".bss"
+          [
+            "?R:         resq 1"
+          ]
+      , Section ".text"
+          [
+            printf64
+          ]
+      ]
 
 testConstify :: Spec
 testConstify = describe "Modc.Compiler" $ do
@@ -320,11 +590,48 @@ testConstify = describe "Modc.Compiler" $ do
         ]
       )
 
+testMainify :: Spec
+testMainify = describe "Modc.Compiler" $ do
+  let mainify' (Spool n ls) = Spool n (mainify . fst . constify $ ls)
+
+  it "mainify s3" $ do
+    mainify' s3 `shouldBe` s3'
+
+  it "mainify s4" $ do
+    mainify' s4 `shouldBe` s4'
+
+  it "mainify s5" $ do
+    mainify' s5 `shouldBe` s5'
+
+  it "mainify s6" $ do
+    mainify' s6 `shouldBe` s6'
+
+  it "mainify s7" $ do
+    mainify' s7 `shouldBe` s7'
+
+  it "mainify s8" $ do
+    mainify' s8 `shouldBe` s8'
+
+  it "mainify s9" $ do
+    mainify' s9 `shouldBe` s9'
+
+  it "mainify s10" $ do
+    mainify' s10 `shouldBe` s10'
+
+  it "mainify s13" $ do
+    mainify' s13 `shouldBe` s13'
+
+  it "mainify s14" $ do
+    mainify' s14 `shouldBe` s14'
+
+  it "mainify s15" $ do
+    mainify' s15 `shouldBe` s15'
+
 testVarify :: Spec
 testVarify = describe "Modc.Compiler" $ do
   let varify' (Spool _ ls) = varify ls
 
-  it "constify s3" $ do
+  it "varify s3" $ do
     varify' s3 `shouldBe` []
 
   it "varify s4" $ do

@@ -22,7 +22,7 @@ import Modc.Util (offset)
 
 data Spool a = Spool Name [a] deriving Eq
 
-data Label
+data IR
   = Ass Name [Ins]
   | Pro Name [Ins]
   deriving Eq
@@ -33,6 +33,7 @@ data Ins
   = Two Op Val Val
   | Cal Id [Val]
   | Loa Val
+  | Sav Val
   deriving Eq
 
 data Val
@@ -41,12 +42,11 @@ data Val
   | Ref Int
   | Sym Id
   deriving Eq
-  -- | Map Int
 
 instance Show a => Show (Spool a) where
   show (Spool n as) = intercalate "\n\n" $ n : fmap show as
 
-instance Show Label where
+instance Show IR where
   show (Ass n is) = intercalate "\n" $ n <> ":" : fmap (offset 2 . show) is
   show (Pro n is) = intercalate "\n" $ n <> "!" : fmap (offset 2 . show) is
 
@@ -54,15 +54,15 @@ instance Show Ins where
   show (Two o a b) = show a <> show o <> show b
   show (Cal i is) = unwords $ i : fmap show is
   show (Loa v) = show v
+  show (Sav v) = "~" <> show v
 
 instance Show Val where
   show (Arg x) = "'" <> show x
   show (Con x) = show x
   show (Ref x) = "[" <> show x <> "]"
   show (Sym x) = x
-  -- show (Map x) = "C" <> show x
 
-spool :: Prog -> Spool Label
+spool :: Prog -> Spool IR
 spool (Prog i cs) = let cs' = rebind cs
                         is = unwind . graph $ cs'
                      in Spool i (fmap (label cs') is)

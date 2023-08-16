@@ -1,14 +1,18 @@
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 module Modc.Compiler where
 
 import Data.Foldable (foldl')
-import Data.List (intercalate)
+import Data.List (intercalate, sort)
+import Data.String (IsString, fromString)
 import Numeric (showHex)
 
 import Data.HashMap.Strict as M (HashMap, insert, lookup, toList, size)
--- import Data.HashMap.Strict (HashMap, toList)
-import Data.Hashable (hash)
+import Data.Hashable (Hashable, hash, hashWithSalt)
 import System.Directory (createDirectoryIfMissing)
 import System.Process (readProcess)
 
@@ -16,60 +20,80 @@ import System.Process (readProcess)
 --   (
 --     Op (Add, Div, Mul, Sub)
 --   )
-import Modc.Util (offsets)
+import Modc.Util (offseti, spacen, spaces)
 import Modc.VM
   (
-    Ins (Cal, Loa, Two)
-  , Label (Ass, Pro)
+    IR (Ass, Pro)
+  , Ins (Cal, Loa, Sav, Two)
   , Name
   , Spool (Spool)
   , Val (Con, Sym)
   )
 
-data Section
+data ASM
   = Global String
   | Extern String
-  | Section String [Line]
+  | forall a. (Eq a, Show a) => Section Name [a]
+  -- deriving Eq
 
-type Line = String
+data Label = Label Name [Line] deriving Eq
+
+newtype Line = Line String deriving Eq
+
 type Consts = HashMap Double Int
 
-instance Show Section where
+instance Show ASM where
   show (Global n) = "global " <> n
   show (Extern n) = "extern " <> n
-  show (Section n ls) = "section " <> n <> "\n" <> intercalate "\n" (fmap offsets ls)
+  show (Section n ls) = "section " <> n <> "\n" <> intercalate "\n" (fmap show ls)
+
+instance Show Label where
+  show (Label n ls) = show n <> ":" <> "\n" <> intercalate "\n" (fmap show ls)
+
+instance Show Line where
+  show (Line s) = offseti s
+
+instance Hashable Line where
+  hash (Line s) = hash s
+  hashWithSalt n (Line s) = hashWithSalt n s
+
+instance IsString Line where
+  fromString = Line
+
+instance Eq ASM where
+  (==) (Global n) (Global m) = n == m
+  (==) (Extern n) (Extern m) = n == m
+  (==) (Section a as) (Section b bs) = a == b && as == bs
+  (==) _ _ = False
 
 run :: Spool Line -> IO ()
 run s@(Spool n ls) = do
   createDirectoryIfMissing True hDir
   print s
-  writeFile (hDir <> n <> ".s") . unlines $ ls
+  writeFile (hDir <> n <> ".s") . show $ ls
   readProcess "nasm" ["-g", "-f", "elf64", hDir <> n <> ".s", "-o", hDir <> n <> ".o"] mempty >>= putStrLn
   readProcess "gcc" ["-z", "noexecstack", "-o", hDir <> "a.out", hDir <> n <> ".o"] mempty >>= putStrLn
   readProcess (hDir <> "a.out") mempty mempty >>= putStrLn
  where
   hDir = "/tmp/modc/" <> n <> "-" <> showHex (abs . hash $ ls) mempty <> "/"
 
-compile :: Spool Label -> Spool Section
-compile (Spool n ls) = let (_ls',cs) = constify ls
+compile :: Spool IR -> Spool ASM
+compile (Spool n ls) = let (ls',cs) = constify ls
                            vs = varify ls
-                           -- ls'' = mainify ls'
+                           ls'' = mainify ls'
                         in Spool n
                              [
                                global
                              , extern
                              , data' cs
                              , bss vs
-                             -- , text ls''
+                             , text ls''
                              ]
 
--- constify' :: Spool Label -> ([Label], Consts)
--- constify' (Spool _ ls) = constify ls
-
-constify :: [Label] -> ([Label], Consts)
+constify :: [IR] -> ([IR], Consts)
 constify = foldl' clabel mempty
  where
-  -- clabel :: ([Label], Consts) -> Label -> ([Label], Consts)
+  -- clabel :: ([IR], Consts) -> IR -> ([IR], Consts)
   clabel (ls,cs) l = case l of
                        Ass n is -> let (is',cs') = foldl' cins (mempty, cs) is
                                     in (ls <> [Ass n is'], cs')
@@ -95,48 +119,54 @@ constify = foldl' clabel mempty
   -- upsert :: Double -> Consts -> (Int, Consts)
   upsert k m = maybe (size m, insert k (size m) m) (,m) $ M.lookup k m
 
-varify :: [Label] -> [Name]
+varify :: [IR] -> [Name]
 varify = concatMap vlabel
  where
   vlabel (Ass n _) = if n == "main" then mempty else pure n
   vlabel _ = mempty
 
-mainify :: [Label] -> [Label]
-mainify = undefined
+mainify :: [IR] -> [IR]
+mainify = foldr acc mempty
+ where
+  acc l a = case l of
+              Ass "main" _ -> l : a
+              Ass n is -> let (Ass _ is') = last a
+                           in init a <> [Ass "main" $ is <> [Sav (Sym n)] <> is']
+              Pro _ _ -> l : a
 
-global :: Section
+global :: ASM
 global = Global "main"
 
-extern :: Section
+extern :: ASM
 extern = Extern "printf"
 
-data' :: Consts -> Section
+data' :: Consts -> ASM
 data' cs = Section ".data" $
-  "?F:          db \"%.2f\", 10, 0" : fmap (uncurry fconst) (toList cs)
+  "?F:         db \"%.2f\", 10, 0" : sort (fmap (uncurry fconst) (toList cs))
  where
-  fconst k v = show v <> ":         dq " <> show k
+  fconst k v = "?" <> show v <> ":" <> spacen v <> "dq " <> show k
 
-bss :: [Name] -> Section
+bss :: [Name] -> ASM
 bss vs = Section ".bss" $
   "?R:         resq 1" : fmap fvar vs
  where
-  fvar v = v <> ":          resq 1"
+  fvar v = v <> ":" <> spaces v <> "resq 1"
 
-text :: [Label] -> Section
+text :: [IR] -> ASM
 text _ls = Section ".text"
   [
-    -- "section .text"
+    printf64
+  , printf64
   ]
 -- for each Ins make Line
   -- create bss  section from [Ins]
   -- create data section from [Ins]
 -- add printf_f64
 
-printf64 :: [[Line]]
-printf64 = pure
+printf64 :: Label
+printf64 = Label "?printf_f64"
   [
-    "printf_f64:"
-  , "        push        rbp"
+    "        push        rbp"
   , "        mov         rbp, rsp"
   , ""
   , "        mov         rdi, FST"
@@ -150,13 +180,6 @@ printf64 = pure
   ]
 
 {-
-section :: String -> [Line] -> [Line]
-section s is = "section " <> s : fmap offset is
- where
-  offset cs = if last cs == ':'
-              then cs
-              else "        " <> cs
-
 text :: Text -> [Line]
 text is = main' <> concatMap block is
  where
@@ -185,31 +208,7 @@ text is = main' <> concatMap block is
             Sub -> "fsubp"
             Mul -> "fmulp"
             Div -> "fdivp"
-  main' = pure "main:"
 
 comment :: String -> Line
 comment s = "; " <> s
-
-main :: Tape -> Module
-main (is,cs,vs,_) = ("main",) . unlines . intercalate (pure mempty) $
-  [
-    global "main"
-  , extern "_printf_f64"
-  , section ".data" (data' cs)
-  , section ".bss"  (bss vs)
-  , section ".text" (text is) <> print'
-  ]
- where
-  print' =
-    [
-      ""
-    , "        fstp        qword [RES]"
-    , "        mov         rax, [RES]"
-    , ""
-    , "        push        rax"
-    , "        call        _printf_f64"
-    , ""
-    , "        add         rsp, 8"
-    , "        ret"
-    ]
 -}
