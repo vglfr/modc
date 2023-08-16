@@ -13,8 +13,8 @@ import Modc.AST
   )
 import Modc.VM
   (
-    IR (Ass, Pro)
-  , Ins (Cal, Loa, Sav, Two)
+    Ins (Cal, Loa, Sav, Two)
+  , Label (Ass, Pro)
   , Spool (Spool)
   , Val (Arg, Con, Ref, Sym)
   )
@@ -42,7 +42,7 @@ p3 = Prog "p3" $ fromList
     ("main", "main" := Bin Mul 3 2)
   ]
 
-s3 :: Spool IR
+s3 :: Spool Label
 s3 = Spool "p3"
   [
     Ass "main"
@@ -51,7 +51,7 @@ s3 = Spool "p3"
       ]
   ]
 
-s3' :: Spool IR
+s3' :: Spool Label
 s3' = Spool "p3"
   [
     Ass "main"
@@ -71,7 +71,7 @@ p4 = Prog "p4" $ fromList
   , ("main", "main" := Bin Div (Bin Add 3 2) (Bin Add (Bin Mul (Bin Sub 3 2) 4) 6))
   ]
 
-s4 :: Spool IR
+s4 :: Spool Label
 s4 = Spool "p4"
   [
     Ass "main"
@@ -84,7 +84,7 @@ s4 = Spool "p4"
       ]
   ]
 
-s4' :: Spool IR
+s4' :: Spool Label
 s4' = Spool "p4"
   [
     Ass "main"
@@ -108,7 +108,7 @@ p5 = Prog "p5" $ fromList
   , ("main", "main" := Bin Mul "x" 2)
   ]
 
-s5 :: Spool IR
+s5 :: Spool Label
 s5 = Spool "p5"
   [
     Ass "x"
@@ -121,7 +121,7 @@ s5 = Spool "p5"
       ]
   ]
 
-s5' :: Spool IR
+s5' :: Spool Label
 s5' = Spool "p5"
   [
     Ass "main"
@@ -145,7 +145,7 @@ p6 = Prog "p6" $ fromList
   , ("main", "main" := Bin Sub (Bin Add "x" 1) "y")
   ]
 
-s6 :: Spool IR
+s6 :: Spool Label
 s6 = Spool "p6"
   [
     Ass "x"
@@ -163,7 +163,7 @@ s6 = Spool "p6"
       ]
   ]
 
-s6' :: Spool IR
+s6' :: Spool Label
 s6' = Spool "p6"
   [
     Ass "main"
@@ -188,7 +188,7 @@ p7 = Prog "p7" $ fromList
   , ("main", "main" := Bin Add (Bin Sub (Exe "f" [3]) 2) (Exe "f" [1]))
   ]
 
-s7 :: Spool IR
+s7 :: Spool Label
 s7 = Spool "p7"
   [
     Pro "f"
@@ -204,7 +204,7 @@ s7 = Spool "p7"
       ]
   ]
 
-s7' :: Spool IR
+s7' :: Spool Label
 s7' = Spool "p7"
   [
     Pro "f"
@@ -233,7 +233,7 @@ p8 = Prog "p8" $ fromList
   , ("main", "main" := Bin Sub (Exe "f" [3, 4]) (Exe "g" [2]))
   ]
 
-s8 :: Spool IR
+s8 :: Spool Label
 s8 = Spool "p8"
   [
     Pro "f"
@@ -253,7 +253,7 @@ s8 = Spool "p8"
       ]
   ]
 
-s8' :: Spool IR
+s8' :: Spool Label
 s8' = Spool "p8"
   [
     Pro "f"
@@ -286,7 +286,7 @@ p9 = Prog "p9" $ fromList
   , ("main", "main" := Bin Sub (Exe "f" [3]) (Bin Mul 2 "y"))
   ]
 
-s9 :: Spool IR
+s9 :: Spool Label
 s9 = Spool "p9"
   [
     Ass "y"
@@ -306,7 +306,7 @@ s9 = Spool "p9"
       ]
   ]
 
-s9' :: Spool IR
+s9' :: Spool Label
 s9' = Spool "p9"
   [
     Pro "f"
@@ -346,7 +346,7 @@ p10 = Prog "p10" $ fromList
   , ("main", "main" := Bin Add (Bin Sub (Exe "f" [3]) (Bin Mul 2 "y")) (Bin Div "z" (Exe "g" ["z", 7])))
   ]
 
-s10 :: Spool IR
+s10 :: Spool Label
 s10 = Spool "p10"
   [
     Ass "y"
@@ -379,7 +379,7 @@ s10 = Spool "p10"
       ]
   ]
 
-s10' :: Spool IR
+s10' :: Spool Label
 s10' = Spool "p10"
   [
     Pro "f"
@@ -445,7 +445,7 @@ p13 = Prog "p13" $ fromList
   , ("main", "main" := Bin Sub (Exe "f" ["z"]) (Bin Mul 2 "y"))
   ]
 
-s13 :: Spool IR
+s13 :: Spool Label
 s13 = Spool "p13"
   [
     Ass "y"
@@ -469,7 +469,7 @@ s13 = Spool "p13"
       ]
   ]
 
-s13' :: Spool IR
+s13' :: Spool Label
 s13' = Spool "p13"
   [
     Pro "f"
@@ -506,7 +506,7 @@ p14 = Prog "p14" $ fromList
   , ("main", "main" := Bin Add (Bin Sub "a" 2) (Bin Div (Bin Mul "b" (Exe "f" [3])) (Exe "g" ["a", Bin Mul "b" 2])))
   ]
 
-s14 :: Spool IR
+s14 :: Spool Label
 s14 = Spool "p14"
   [
     Ass "a"
@@ -540,7 +540,7 @@ s14 = Spool "p14"
       ]
   ]
 
-s14' :: Spool IR
+s14' :: Spool Label
 s14' = Spool "p14"
   [
     Pro "f"
@@ -579,7 +579,7 @@ p15 = Prog "p15" $ fromList
     ("main", "main" := 3)
   ]
 
-s15 :: Spool IR
+s15 :: Spool Label
 s15 = Spool "p15"
   [
     Ass "main"
@@ -588,7 +588,7 @@ s15 = Spool "p15"
       ]
   ]
 
-s15' :: Spool IR
+s15' :: Spool Label
 s15' = Spool "p15"
   [
     Ass "main"

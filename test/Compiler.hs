@@ -9,6 +9,7 @@ import Modc.AST
 import Modc.Compiler
   (
     ASM (Global, Extern, Section)
+  , Block (Text)
   , compile, constify, mainify, printf64, varify
   )
 import Modc.Example
@@ -18,8 +19,8 @@ import Modc.Example
   )
 import Modc.VM
   (
-    IR (Ass, Pro)
-  , Ins (Cal, Loa, Two)
+    Ins (Cal, Loa, Two)
+  , Label (Ass, Pro)
   , Spool (Spool)
   , Val (Arg, Ref, Sym)
   )
@@ -32,13 +33,13 @@ testCompile = describe "Modc.Compiler" $ do
       [
         Global "main"
       , Extern "printf"
-      , Section ".data"
+      , Section ".data" . pure . Text $
           [
             "?F:         db \"%.2f\", 10, 0"
           , "?0:         dq 3.0"
           , "?1:         dq 2.0"
           ]
-      , Section ".bss"
+      , Section ".bss" . pure . Text $
           [
             "?R:         resq 1"
           ]
@@ -65,7 +66,7 @@ testCompile = describe "Modc.Compiler" $ do
       [
         Global "main"
       , Extern "printf"
-      , Section ".data"
+      , Section ".data" . pure . Text $
           [
             "?F:         db \"%.2f\", 10, 0"
           , "?0:         dq 3.0"
@@ -73,7 +74,7 @@ testCompile = describe "Modc.Compiler" $ do
           , "?2:         dq 4.0"
           , "?3:         dq 6.0"
           ]
-      , Section ".bss"
+      , Section ".bss" . pure . Text $
           [
             "?R:         resq 1"
           ]
@@ -88,13 +89,13 @@ testCompile = describe "Modc.Compiler" $ do
       [
         Global "main"
       , Extern "printf"
-      , Section ".data"
+      , Section ".data" . pure . Text $
           [
             "?F:         db \"%.2f\", 10, 0"
           , "?0:         dq 5.0"
           , "?1:         dq 2.0"
           ]
-      , Section ".bss"
+      , Section ".bss" . pure . Text $
           [
             "?R:         resq 1"
           , "x:          resq 1"
@@ -110,14 +111,14 @@ testCompile = describe "Modc.Compiler" $ do
       [
         Global "main"
       , Extern "printf"
-      , Section ".data"
+      , Section ".data" . pure . Text $
           [
             "?F:         db \"%.2f\", 10, 0"
           , "?0:         dq 5.0"
           , "?1:         dq 2.0"
           , "?2:         dq 1.0"
           ]
-      , Section ".bss"
+      , Section ".bss" . pure . Text $
           [
             "?R:         resq 1"
           , "x:          resq 1"
@@ -134,14 +135,14 @@ testCompile = describe "Modc.Compiler" $ do
       [
         Global "main"
       , Extern "printf"
-      , Section ".data"
+      , Section ".data" . pure . Text $
           [
             "?F:         db \"%.2f\", 10, 0"
           , "?0:         dq 2.0"
           , "?1:         dq 3.0"
           , "?2:         dq 1.0"
           ]
-      , Section ".bss"
+      , Section ".bss" . pure . Text $
           [
             "?R:         resq 1"
           ]
@@ -156,14 +157,14 @@ testCompile = describe "Modc.Compiler" $ do
       [
         Global "main"
       , Extern "printf"
-      , Section ".data"
+      , Section ".data" . pure . Text $
           [
             "?F:         db \"%.2f\", 10, 0"
           , "?0:         dq 2.0"
           , "?1:         dq 4.0"
           , "?2:         dq 3.0"
           ]
-      , Section ".bss"
+      , Section ".bss" . pure . Text $
           [
             "?R:         resq 1"
           ]
@@ -178,14 +179,14 @@ testCompile = describe "Modc.Compiler" $ do
       [
         Global "main"
       , Extern "printf"
-      , Section ".data"
+      , Section ".data" . pure . Text $
           [
             "?F:         db \"%.2f\", 10, 0"
           , "?0:         dq 5.0"
           , "?1:         dq 2.0"
           , "?2:         dq 3.0"
           ]
-      , Section ".bss"
+      , Section ".bss" . pure . Text $
           [
             "?R:         resq 1"
           , "y:          resq 1"
@@ -201,7 +202,7 @@ testCompile = describe "Modc.Compiler" $ do
       [
         Global "main"
       , Extern "printf"
-      , Section ".data"
+      , Section ".data" . pure . Text $
           [
             "?F:         db \"%.2f\", 10, 0"
           , "?0:         dq 5.0"
@@ -209,7 +210,7 @@ testCompile = describe "Modc.Compiler" $ do
           , "?2:         dq 3.0"
           , "?3:         dq 7.0"
           ]
-      , Section ".bss"
+      , Section ".bss" . pure . Text $
           [
             "?R:         resq 1"
           , "y:          resq 1"
@@ -226,14 +227,14 @@ testCompile = describe "Modc.Compiler" $ do
       [
         Global "main"
       , Extern "printf"
-      , Section ".data"
+      , Section ".data" . pure . Text $
           [
             "?F:         db \"%.2f\", 10, 0"
           , "?0:         dq 5.0"
           , "?1:         dq 2.0"
           , "?2:         dq 3.0"
           ]
-      , Section ".bss"
+      , Section ".bss" . pure . Text $
           [
             "?R:         resq 1"
           , "y:          resq 1"
@@ -250,7 +251,7 @@ testCompile = describe "Modc.Compiler" $ do
       [
         Global "main"
       , Extern "printf"
-      , Section ".data"
+      , Section ".data" . pure . Text $
           [
             "?F:         db \"%.2f\", 10, 0"
           , "?0:         dq 2.0"
@@ -258,7 +259,7 @@ testCompile = describe "Modc.Compiler" $ do
           , "?2:         dq 5.0"
           , "?3:         dq 8.0"
           ]
-      , Section ".bss"
+      , Section ".bss" . pure . Text $
           [
             "?R:         resq 1"
           , "a:          resq 1"
@@ -275,12 +276,12 @@ testCompile = describe "Modc.Compiler" $ do
       [
         Global "main"
       , Extern "printf"
-      , Section ".data"
+      , Section ".data" . pure . Text $
           [
             "?F:         db \"%.2f\", 10, 0"
           , "?0:         dq 3.0"
           ]
-      , Section ".bss"
+      , Section ".bss" . pure . Text $
           [
             "?R:         resq 1"
           ]

@@ -22,7 +22,7 @@ import Modc.Util (offset)
 
 data Spool a = Spool Name [a] deriving Eq
 
-data IR
+data Label
   = Ass Name [Ins]
   | Pro Name [Ins]
   deriving Eq
@@ -46,7 +46,7 @@ data Val
 instance Show a => Show (Spool a) where
   show (Spool n as) = intercalate "\n\n" $ n : fmap show as
 
-instance Show IR where
+instance Show Label where
   show (Ass n is) = intercalate "\n" $ n <> ":" : fmap (offset 2 . show) is
   show (Pro n is) = intercalate "\n" $ n <> "!" : fmap (offset 2 . show) is
 
@@ -62,7 +62,7 @@ instance Show Val where
   show (Ref x) = "[" <> show x <> "]"
   show (Sym x) = x
 
-spool :: Prog -> Spool IR
+spool :: Prog -> Spool Label
 spool (Prog i cs) = let cs' = rebind cs
                         is = unwind . graph $ cs'
                      in Spool i (fmap (label cs') is)

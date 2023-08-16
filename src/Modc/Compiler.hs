@@ -1,6 +1,3 @@
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE OverloadedStrings #-}
-
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
@@ -8,11 +5,10 @@ module Modc.Compiler where
 
 import Data.Foldable (foldl')
 import Data.List (intercalate, sort)
-import Data.String (IsString, fromString)
 import Numeric (showHex)
 
 import Data.HashMap.Strict as M (HashMap, insert, lookup, toList, size)
-import Data.Hashable (Hashable, hash, hashWithSalt)
+import Data.Hashable (hash)
 import System.Directory (createDirectoryIfMissing)
 import System.Process (readProcess)
 
@@ -23,8 +19,8 @@ import System.Process (readProcess)
 import Modc.Util (offseti, spacen, spaces)
 import Modc.VM
   (
-    IR (Ass, Pro)
-  , Ins (Cal, Loa, Sav, Two)
+    Ins (Cal, Loa, Sav, Two)
+  , Label (Ass, Pro)
   , Name
   , Spool (Spool)
   , Val (Con, Sym)
@@ -33,38 +29,25 @@ import Modc.VM
 data ASM
   = Global String
   | Extern String
-  | forall a. (Eq a, Show a) => Section Name [a]
-  -- deriving Eq
+  | Section Name [Block]
+  deriving Eq
 
-data Label = Label Name [Line] deriving Eq
+data Block
+  = Label Name [Line]
+  | Text [Line]
+  deriving Eq
 
-newtype Line = Line String deriving Eq
-
+type Line = String
 type Consts = HashMap Double Int
 
 instance Show ASM where
   show (Global n) = "global " <> n
   show (Extern n) = "extern " <> n
-  show (Section n ls) = "section " <> n <> "\n" <> intercalate "\n" (fmap show ls)
+  show (Section n cs) = "section " <> n <> "\n" <> intercalate "\n" (fmap show cs)
 
-instance Show Label where
-  show (Label n ls) = show n <> ":" <> "\n" <> intercalate "\n" (fmap show ls)
-
-instance Show Line where
-  show (Line s) = offseti s
-
-instance Hashable Line where
-  hash (Line s) = hash s
-  hashWithSalt n (Line s) = hashWithSalt n s
-
-instance IsString Line where
-  fromString = Line
-
-instance Eq ASM where
-  (==) (Global n) (Global m) = n == m
-  (==) (Extern n) (Extern m) = n == m
-  (==) (Section a as) (Section b bs) = a == b && as == bs
-  (==) _ _ = False
+instance Show Block where
+  show (Label n ls) = n <> ":" <> "\n" <> intercalate "\n" (fmap offseti ls)
+  show (Text ls) = intercalate "\n" (fmap offseti ls)
 
 run :: Spool Line -> IO ()
 run s@(Spool n ls) = do
@@ -77,23 +60,16 @@ run s@(Spool n ls) = do
  where
   hDir = "/tmp/modc/" <> n <> "-" <> showHex (abs . hash $ ls) mempty <> "/"
 
-compile :: Spool IR -> Spool ASM
+compile :: Spool Label -> Spool ASM
 compile (Spool n ls) = let (ls',cs) = constify ls
                            vs = varify ls
                            ls'' = mainify ls'
-                        in Spool n
-                             [
-                               global
-                             , extern
-                             , data' cs
-                             , bss vs
-                             , text ls''
-                             ]
+                        in Spool n [global, extern, data' cs, bss vs, text ls'']
 
-constify :: [IR] -> ([IR], Consts)
+constify :: [Label] -> ([Label], Consts)
 constify = foldl' clabel mempty
  where
-  -- clabel :: ([IR], Consts) -> IR -> ([IR], Consts)
+  -- clabel :: ([Label], Consts) -> Label -> ([Label], Consts)
   clabel (ls,cs) l = case l of
                        Ass n is -> let (is',cs') = foldl' cins (mempty, cs) is
                                     in (ls <> [Ass n is'], cs')
@@ -119,13 +95,13 @@ constify = foldl' clabel mempty
   -- upsert :: Double -> Consts -> (Int, Consts)
   upsert k m = maybe (size m, insert k (size m) m) (,m) $ M.lookup k m
 
-varify :: [IR] -> [Name]
+varify :: [Label] -> [Name]
 varify = concatMap vlabel
  where
   vlabel (Ass n _) = if n == "main" then mempty else pure n
   vlabel _ = mempty
 
-mainify :: [IR] -> [IR]
+mainify :: [Label] -> [Label]
 mainify = foldr acc mempty
  where
   acc l a = case l of
@@ -141,42 +117,43 @@ extern :: ASM
 extern = Extern "printf"
 
 data' :: Consts -> ASM
-data' cs = Section ".data" $
+data' cs = Section ".data" . pure . Text $
   "?F:         db \"%.2f\", 10, 0" : sort (fmap (uncurry fconst) (toList cs))
  where
   fconst k v = "?" <> show v <> ":" <> spacen v <> "dq " <> show k
 
 bss :: [Name] -> ASM
-bss vs = Section ".bss" $
+bss vs = Section ".bss" . pure . Text $
   "?R:         resq 1" : fmap fvar vs
  where
   fvar v = v <> ":" <> spaces v <> "resq 1"
 
-text :: [IR] -> ASM
+text :: [Label] -> ASM
 text _ls = Section ".text"
   [
     printf64
-  , printf64
+  -- , printf64
   ]
 -- for each Ins make Line
   -- create bss  section from [Ins]
   -- create data section from [Ins]
 -- add printf_f64
 
-printf64 :: Label
+printf64 :: Block
 printf64 = Label "?printf_f64"
   [
-    "        push        rbp"
-  , "        mov         rbp, rsp"
+    "push        rbp"
+  , "mov         rbp, rsp"
   , ""
-  , "        mov         rdi, FST"
-  , "        mov         rax, 1"
-  , "        movsd       xmm0, qword [rbp+16]"
-  , "        call        printf"
+  , "mov         rdi, FST"
+  , "mov         rax, 1"
+  , "movsd       xmm0, qword [rbp+16]"
+  , "call        printf"
   , ""
-  , "        pop         rbp"
-  , "        xor         rax, rax"
-  , "        ret"
+  , "pop         rbp"
+  , "xor         rax, rax"
+  , "ret"
+  , ""
   ]
 
 {-
