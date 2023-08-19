@@ -44,7 +44,7 @@ data Val
   deriving Eq
 
 instance Show a => Show (Spool a) where
-  show (Spool n as) = intercalate "\n\n" $ n : fmap show as
+  show (Spool n as) = intercalate "\n\n" $ "; " <> n : fmap show as
 
 instance Show Label where
   show (Ass n is) = intercalate "\n" $ n <> ":" : fmap (offset 2 . show) is
