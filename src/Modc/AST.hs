@@ -21,6 +21,7 @@ data Comb
 data Exp
   = Bin Op Exp Exp
   | Exe Id [Exp]
+  -- | Ter Cmp Exp Exp Exp Exp
   | Var Id
   | Val Double
   deriving Eq
@@ -31,6 +32,15 @@ data Op
   | Mul
   | Div
   deriving Eq
+
+-- data Cmp
+--   = Eq
+--   | Ne
+--   | Gt
+--   | Lt
+--   | Gte
+--   | Lte
+--   deriving Eq
 
 instance Show Prog where
   show (Prog _ cs) = intercalate "\n\n" . fmap show . sortOn name . elems $ cs -- graph
@@ -49,6 +59,7 @@ instance Show Exp where
                     Bin o x y -> let m = prec o
                                   in showParen (n > m) $ showsPrec m x . shows o . showsPrec (m+1) y
                     Exe f es -> showString f . showSpace . showArgs es
+                    -- Ter c a b x y -> undefined
                     Var i -> showString i
                     Val v -> let i = round v
                               in if v == fromInteger i
@@ -72,6 +83,15 @@ instance Show Op where
              Sub -> " - "
              Mul -> " * "
              Div -> " / "
+
+-- instance Show Cmp where
+--   show o = case o of
+--              Eq -> " == "
+--              Ne -> " /= "
+--              Gt -> " > "
+--              Lt -> " < "
+--              Gte -> " >= "
+--              Lte -> " <= "
 
 instance Num Exp where
   fromInteger = Val . fromInteger

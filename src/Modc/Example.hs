@@ -596,3 +596,30 @@ s15' = Spool "p15"
         Loa (Sym "?0")
       ]
   ]
+
+{- 1
+main = if 3 + 5 > 7 then 3 - 2 else 4 * 4
+-}
+p16 :: Prog
+p16 = Prog "p16" $ fromList
+  [
+    -- ("main", "main" := 3)
+  ]
+
+-- s16 :: Spool Label
+-- s16 = Spool "p15"
+--   [
+--     Ass "main"
+--       [
+--         Loa (Con 3)
+--       ]
+--   ]
+
+-- s16' :: Spool Label
+-- s16' = Spool "p15"
+--   [
+--     Ass "main"
+--       [
+--         Loa (Sym "?0")
+--       ]
+--   ]

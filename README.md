@@ -2,15 +2,17 @@
 
 + migrate from numc
 + spool Prog's
++ compile Prog's
 
-- compile Prog's
+- partial functions (autocurry)
 
-- conditionals (unconditional)
-- comparisons
-- boolean types
-- conditionals (conditional)
-- first order functions
-- fX, iX, uX types
+- conditionals + comparisons
+- types (boolean + double)
+- first order functions (boolean + double + function)
+
+- user-defined data types - haskell
+- module system - ocaml
+- x86 / ARM backend - c++
 
 Conventions:
 - arguments are |'0 '1 ..|

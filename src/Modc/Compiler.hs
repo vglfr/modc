@@ -162,16 +162,12 @@ text ls = Section ".text" $ printf64 : fmap compile' ls
               Arg n -> "rbp+" <> show (16 + n*8)
               _ -> show v
   fxch = "fxch"
-  cpush a = case a of
-              Ref _ ->
-                [
-                  "fstp        qword [?R]"
-                , "push        qword [?R]"
-                ]
-              _ ->
-                [
-                  "push        qword [" <> show a <> "]"
-                ]
+  cpush a = if notRef a
+            then pure $ "push        qword [" <> show a <> "]"
+            else [
+                   "fstp        qword [?R]"
+                 , "push        qword [?R]"
+                 ]
   ccall n l =
     [
       "call        " <> n
