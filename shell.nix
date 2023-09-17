@@ -9,7 +9,7 @@ let
 
 in
   {
-    pkgs ? import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/fb942492b7accdee4e6d17f5447091c65897dde4.tar.gz") { inherit config; }
+    pkgs ? import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/e7f38be3775bab9659575f192ece011c033655f0.tar.gz") { inherit config; }
   }:
 
   pkgs.mkShell {
